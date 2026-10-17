@@ -1,0 +1,102 @@
+title: OAuth
+description: Register an app and trade an authorization code for a token.
+icon: key
+section: resources
+order: 0
+embedded: true
+endpoints:
+  - id: register-app
+    method: POST
+    path: /api/v1/apps
+    title: Register an app
+    description: Creates an OAuth client on this server. Do it once per server, not once per person. Returns `404` when the admin has turned OAuth off.
+    compat: mastodon
+    auth: false
+    result: app
+    params:
+      body:
+        - name: client_name
+          type: string
+          required: true
+          desc: The name people see on the approval screen.
+        - name: redirect_uris
+          type: string
+          required: true
+          desc: Where to send people after they approve. Custom URL schemes are fine for mobile apps. Separate several URIs with a newline.
+        - name: scopes
+          type: string
+          desc: "Accepted for Mastodon compatibility but not stored. Scopes are chosen when you send the person to `/oauth/authorize`."
+        - name: website
+          type: string
+          desc: Accepted for Mastodon compatibility but not stored, so `website` comes back as `null`.
+    returns: "the app, including the `client_id` and `client_secret` you need for the next step. The secret is shown once, so store it now."
+    example:
+      body:
+        client_name: Tintype
+        redirect_uris: tintype://oauth-callback
+        scopes: read write follow
+        website: https://tintype.example
+    responses:
+      - status: 200
+        body:
+          id: "1842"
+          name: Tintype
+          website: null
+          redirect_uri: tintype://oauth-callback
+          client_id: "1842"
+          client_secret: kR2mV9xQpL4tYc7HsW1nB8dJfZ3gA6uE0oNqTiXb
+          vapid_key: null
+      - status: 422
+        body:
+          message: The client name field is required.
+          errors:
+            client_name: [The client name field is required.]
+
+  - id: get-token
+    method: POST
+    path: /oauth/token
+    title: Get a token
+    description: Trades the authorization code for an access token. Codes are single use and expire after a few minutes.
+    auth: false
+    result: token
+    params:
+      body:
+        - name: grant_type
+          type: string
+          required: true
+          desc: "Use `authorization_code`, or `refresh_token` to renew an expired token."
+        - name: code
+          type: string
+          required: true
+          desc: The code from the redirect.
+        - name: client_id
+          type: string
+          required: true
+          desc: From Register an app.
+        - name: client_secret
+          type: string
+          required: true
+          desc: From Register an app.
+        - name: redirect_uri
+          type: string
+          required: true
+          desc: Must match the URI the app was registered with.
+    returns: "an access token and a refresh token. Keep both in secure storage, never in plain preferences or `localStorage`."
+    example:
+      body:
+        grant_type: authorization_code
+        code: def50200a91c4e7f3b
+        client_id: "1842"
+        client_secret: kR2mV9xQpL4tYc7HsW1nB8dJfZ3gA6uE0oNqTiXb
+        redirect_uri: tintype://oauth-callback
+    responses:
+      - status: 200
+        body:
+          token_type: Bearer
+          expires_in: 31536000
+          access_token: eyJ0eXAiOiJKV1QiLCJhbGciOi...
+          refresh_token: def50200c3a87be21f...
+      - status: 400
+        body:
+          error: invalid_grant
+          error_description: The authorization code is invalid or has expired.

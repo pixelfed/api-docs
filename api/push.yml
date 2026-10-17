@@ -1,0 +1,150 @@
+title: Push notifications
+description: Register an Expo push token for the official Pixelfed apps and choose which events notify you.
+icon: bell-alert
+section: pixelfed
+order: 7
+endpoints:
+  - id: get-push-state
+    method: GET
+    path: /api/v1.1/push/state
+    title: Get push state
+    description: "Returns whether push is on for your account, whether a token is stored, and the per-event toggles. Pixelfed push does not use Web Push: the server stores one Expo push token per account and, when you get a like, follow or mention, sends `{ token, type, actor }` to the Pixelfed push gateway at `push.pixelfed.net`, which delivers it through Expo. The token itself is never returned."
+    compat: pixelfed
+    scope: push
+    result: state
+    callout:
+      icon: server
+      text: "Every push endpoint needs an `X-PIXELFED-APP` header (any value) or it returns 404. Push also has to be set up on the server: `INSTANCE_NOTIFY_APP_GATEWAY` on (the default), a 45 character `PIXELFED_PUSHGATEWAY_KEY`, and the gateway confirming the domain as active (checked every 12 hours). Otherwise these endpoints return 404, and you can check up front with `GET /api/v1.1/nag/state`."
+    returns: "`version` (the gateway protocol, `1.0`), `username`, `profile_id`, `notify_enabled`, `has_token` and the `notify_like`, `notify_follow`, `notify_mention` and `notify_comment` toggles."
+    responses:
+      - status: 200
+        body:
+          version: "1.0"
+          username: dansup
+          profile_id: "2"
+          notify_enabled: true
+          has_token: true
+          notify_like: true
+          notify_follow: true
+          notify_mention: true
+          notify_comment: false
+      - status: 404
+        body:
+          error: Push notifications are not supported on this server.
+      - status: 422
+        body:
+          error: Cannot access this resource at this time
+
+  - id: compare-push-token
+    method: POST
+    path: /api/v1.1/push/compare
+    title: Compare push token
+    description: "Checks whether the token on this device is the one stored for your account, without revealing the stored token. Call it on app start: if `match` is false, register this device with [Update push settings](/api/push#update-push)."
+    compat: pixelfed
+    scope: push
+    result: comparison
+    params:
+      body:
+        - name: expo_token
+          type: string
+          required: true
+          desc: "The device's Expo push token, in the form `ExponentPushToken[...]` or `ExpoPushToken[...]`."
+    returns: "`match` (the tokens are equal) and `has_existing` (a token is stored at all), plus `version`, `username`, `profile_id` and `notify_enabled`."
+    example:
+      body: { expo_token: "ExponentPushToken[xH7kQ2mLp9Rt4vB1nC8dZe]" }
+    responses:
+      - status: 200
+        body:
+          version: "1.0"
+          username: dansup
+          profile_id: "2"
+          notify_enabled: true
+          match: false
+          has_existing: true
+      - status: 422
+        body:
+          message: The expo token is not a valid push token.
+          errors:
+            expo_token: [The expo token is not a valid push token.]
+
+  - id: update-push
+    method: POST
+    path: /api/v1.1/push/update
+    title: Update push settings
+    description: "Stores this device's Expo token for your account (replacing any earlier one, so only the latest device gets pushes) and turns push on or off. The event toggles are only changed when you send them. The same token may be shared by a few accounts signed in on one device, but if more than 5 other accounts already use it the request is refused."
+    compat: pixelfed
+    scope: push
+    result: state
+    params:
+      body:
+        - name: token
+          type: string
+          required: true
+          desc: "The device's Expo push token, `ExponentPushToken[...]` or `ExpoPushToken[...]`."
+        - name: notify_enabled
+          type: boolean
+          required: true
+          desc: Master switch for push on this account.
+        - name: notify_like
+          type: boolean
+          desc: Push when someone likes your post.
+        - name: notify_follow
+          type: boolean
+          desc: Push when someone follows you.
+        - name: notify_mention
+          type: boolean
+          desc: Push when someone mentions you or sends you a direct message.
+        - name: notify_comment
+          type: boolean
+          desc: "Stored and returned, but no comment push is sent by the current server code."
+    returns: "`version`, `notify_enabled`, `has_token` and the four toggles."
+    example:
+      body:
+        token: "ExponentPushToken[xH7kQ2mLp9Rt4vB1nC8dZe]"
+        notify_enabled: true
+        notify_like: true
+        notify_follow: true
+        notify_mention: true
+    responses:
+      - status: 200
+        body:
+          version: "1.0"
+          notify_enabled: true
+          has_token: true
+          notify_like: true
+          notify_follow: true
+          notify_mention: true
+          notify_comment: false
+      - status: 400
+        body:
+          error: Push token is already used by another account
+      - status: 422
+        body:
+          message: The notify enabled field is required.
+          errors:
+            notify_enabled: [The notify enabled field is required.]
+
+  - id: disable-push
+    method: POST
+    path: /api/v1.1/push/disable
+    title: Disable push
+    description: Turns push off for your account, deletes the stored token and switches every event toggle off. Call it when the person signs out of the app.
+    compat: pixelfed
+    scope: push
+    result: state
+    returns: "the same object as [Get push state](/api/push#get-push-state), with everything `false`."
+    responses:
+      - status: 200
+        body:
+          version: "1.0"
+          username: dansup
+          profile_id: "2"
+          notify_enabled: false
+          has_token: false
+          notify_like: false
+          notify_follow: false
+          notify_mention: false
+          notify_comment: false
+      - status: 404
+        body:
+          error: Not found

@@ -1,0 +1,242 @@
+title: Search & hashtags
+description: Find accounts and hashtags, resolve remote URLs, and follow hashtags.
+icon: magnifying-glass
+section: resources
+order: 7
+endpoints:
+  - id: search
+    method: GET
+    path: /api/v2/search
+    title: Search
+    description: "Searches accounts and hashtags by prefix. Accounts match on username or webfinger address and are sorted by follower count; hashtags are sorted by post count. Banned domains and domains you blocked are left out. Full text post search is not available, so `statuses` is always empty unless you resolve a post URL."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: results
+    params:
+      query:
+        - name: q
+          type: string
+          required: true
+          desc: "The search text, 1 to 100 characters. A leading `#` is stripped for hashtag matching."
+        - name: type
+          type: string
+          desc: "Only search one kind: `accounts`, `hashtags` or `statuses`. The other two arrays come back empty."
+        - name: resolve
+          type: boolean
+          desc: "When `q` is an `https://` URL or a `user@domain` handle, look it up (locally or over ActivityPub) instead of searching. The parameter only has to be present, so `resolve=false` still resolves."
+        - name: limit
+          type: integer
+          desc: "Results per type. Defaults to 20, max 40."
+        - name: offset
+          type: integer
+          desc: Skip this many results per type. This is how you page.
+        - name: account_id
+          type: string
+          desc: "Not supported. When present, every array comes back empty."
+    callout:
+      icon: information-circle
+      text: "`max_id`, `min_id`, `exclude_unreviewed` and `following` are accepted but ignored. With `_pe`, accounts use the Pixelfed shape and each hashtag also has `count` and `history`. If your account has a role that cannot use discover, all three arrays are empty."
+    returns: "an object with `accounts`, `hashtags` and `statuses` arrays. Page with `offset`, there is no `Link` header."
+    example:
+      query:
+        q: dansup
+        limit: 5
+    responses:
+      - status: 200
+        body:
+          accounts:
+            - id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+              locked: false
+              bot: false
+              discoverable: true
+              followers_count: 318
+              following_count: 204
+              statuses_count: 96
+              note: Harbour walks and film cameras.
+              url: https://pixelfed.social/dansup
+              avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+              avatar_static: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+              header: https://pixelfed.social/storage/headers/missing.png
+              header_static: https://pixelfed.social/storage/headers/missing.png
+              emojis: []
+              fields: []
+              created_at: "2024-03-02T15:20:11.000Z"
+              last_status_at: null
+          hashtags:
+            - name: marathon
+              url: https://pixelfed.social/discover/tags/marathon
+          statuses: []
+      - status: 422
+        body:
+          message: The q field is required.
+          errors:
+            q: [The q field is required.]
+
+  - id: get-trends
+    method: GET
+    path: /api/v1/trends
+    title: Trending hashtags
+    description: "Exists for Mastodon client compatibility. Pixelfed does not compute trends here and always returns an empty array."
+    compat: mastodon
+    scope: read
+    result: trends
+    returns: "an empty array."
+    responses:
+      - status: 200
+        body: []
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: get-hashtag
+    method: GET
+    path: /api/v1/tags/{id}
+    title: Get a hashtag
+    description: "Returns a hashtag and whether you follow it. An unknown hashtag is not an error: you get the name you sent back with `following: false`. `history` is always empty."
+    compat: mastodon
+    pe: true
+    result: tag
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The hashtag name or slug, without the `#`.
+    returns: "a Tag. With `_pe` it also has `count`, the number of posts using it."
+    example:
+      path: /api/v1/tags/goldenhour
+    responses:
+      - status: 200
+        body:
+          name: goldenhour
+          url: https://pixelfed.social/i/web/hashtag/goldenhour
+          history: []
+          following: true
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: related-hashtags
+    method: GET
+    path: /api/v1/tags/{id}/related
+    title: Related hashtags
+    description: "Returns hashtags that often appear alongside this one. The list is only filled in when an admin generates it with `php artisan app:hashtag-related-generate`, so most hashtags return `[]`."
+    compat: pixelfed
+    scope: read
+    result: related
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The hashtag slug.
+    returns: "an array of objects with `name` and `related_count`."
+    example:
+      path: /api/v1/tags/goldenhour/related
+    responses:
+      - status: 200
+        body:
+          - name: sunset
+            related_count: 412
+          - name: seascape
+            related_count: 157
+      - status: 404
+        body:
+          error: "No query results for model [App\\Models\\Hashtag]."
+
+  - id: list-followed-hashtags
+    method: GET
+    path: /api/v1/followed_tags
+    title: List followed hashtags
+    description: Returns the hashtags you follow, most recently followed first. Posts with these hashtags show up in your home timeline.
+    compat: mastodon
+    result: tags
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Tags per page. Defaults to 100, max 200."
+        - name: cursor
+          type: string
+          desc: "Opaque token taken from the `Link` header."
+    returns: "an array of Tag. Pages use a `cursor` parameter, so follow the `next` and `prev` URLs in the `Link` header instead of building `max_id` yourself."
+    example:
+      query:
+        limit: 50
+    responses:
+      - status: 200
+        body:
+          - name: goldenhour
+            url: https://pixelfed.social/i/web/hashtag/goldenhour
+            history: []
+            following: true
+          - name: filmphotography
+            url: https://pixelfed.social/i/web/hashtag/filmphotography
+            history: []
+            following: true
+      - status: 422
+        body:
+          message: The limit field must not be greater than 200.
+          errors:
+            limit: [The limit field must not be greater than 200.]
+
+  - id: follow-hashtag
+    method: POST
+    path: /api/v1/tags/{id}/follow
+    title: Follow a hashtag
+    description: "Follows a hashtag so its posts appear in your home timeline. Following one you already follow is safe. You can follow up to 100 hashtags."
+    compat: mastodon
+    result: tag
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "The hashtag name or slug, without the `#`. The hashtag must already exist on this server."
+    returns: "the Tag with `following: true`."
+    example:
+      path: /api/v1/tags/goldenhour/follow
+    responses:
+      - status: 200
+        body:
+          name: goldenhour
+          url: https://pixelfed.social/i/web/hashtag/goldenhour
+          history: []
+          following: true
+      - status: 422
+        body:
+          error: Unknown hashtag
+      - status: 422
+        body:
+          error: You cannot follow more than 100 hashtags.
+
+  - id: unfollow-hashtag
+    method: POST
+    path: /api/v1/tags/{id}/unfollow
+    title: Unfollow a hashtag
+    description: "Stops following a hashtag and removes its posts from your home timeline in the background. Unfollowing one you do not follow is safe and returns the same shape."
+    compat: mastodon
+    result: tag
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The hashtag name or slug, without the `#`.
+    returns: "the Tag with `following: false`."
+    example:
+      path: /api/v1/tags/goldenhour/unfollow
+    responses:
+      - status: 200
+        body:
+          name: goldenhour
+          url: https://pixelfed.social/i/web/hashtag/goldenhour
+          history: []
+          following: false
+      - status: 422
+        body:
+          error: Unknown hashtag

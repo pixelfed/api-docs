@@ -1,0 +1,100 @@
+title: Notifications
+description: Follows, likes, shares, comments and mentions, newest first.
+icon: bell
+section: resources
+order: 6
+endpoints:
+  - id: list-notifications
+    method: GET
+    path: /api/v1/notifications
+    title: List notifications
+    description: "Returns your notifications, newest first, in the Mastodon shape. Pixelfed types are mapped to Mastodon ones: comments and photo tags arrive as `mention`, shares as `reblog` and likes as `favourite`. Notifications Mastodon has no type for (direct messages, story reactions, moderation notices) are left out, as are any whose post or account was deleted."
+    compat: mastodon
+    scope: read
+    result: notifications
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Notifications per page. Defaults to 20, capped at 40."
+        - name: max_id
+          type: string
+          desc: Return notifications older than this ID.
+        - name: min_id
+          type: string
+          desc: Return notifications newer than this ID.
+        - name: since_id
+          type: string
+          desc: Return notifications newer than this ID. Takes priority over `min_id`.
+        - name: "types[]"
+          type: array of strings
+          desc: "Only return these types. Any of `mention`, `reblog`, `favourite`, `follow`, `follow_request`, `poll` or `status`. Filtering happens server side while paging, so sparse types still fill a page."
+    callout:
+      icon: information-circle
+      text: "`exclude_types[]` is not supported and is ignored, as is the singular `type`. To leave a type out, list the ones you want in `types[]`. The response is always Mastodon shaped, even with `_pe`."
+    returns: "an array of Notification. Pages are linked in the `Link` header, see [Pagination](/api/pagination)."
+    example:
+      query:
+        limit: 20
+        "types[]": mention
+    responses:
+      - status: 200
+        body:
+          - id: "728362240911486976"
+            type: favourite
+            created_at: "2026-09-14T19:03:15.000Z"
+            account:
+              id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas
+              locked: false
+              bot: false
+              discoverable: true
+              followers_count: 88
+              following_count: 140
+              statuses_count: 37
+              note: ""
+              url: https://pixelfed.social/jonas
+              avatar: https://pixelfed.social/storage/avatars/412/760/377/avatar.jpg
+              avatar_static: https://pixelfed.social/storage/avatars/412/760/377/avatar.jpg
+              header: https://pixelfed.social/storage/headers/missing.png
+              header_static: https://pixelfed.social/storage/headers/missing.png
+              emojis: []
+              fields: []
+              created_at: "2025-01-19T10:12:40.000Z"
+              last_status_at: null
+            status:
+              id: "728341901556629504"
+              created_at: "2026-09-14T17:42:10.000Z"
+              url: https://pixelfed.social/p/dansup/728341901556629504
+              content: Golden hour at the pier
+              visibility: public
+              favourited: false
+              reblogged: false
+              bookmarked: false
+              favourites_count: 13
+              reblogs_count: 1
+              replies_count: 2
+              media_attachments:
+                - id: "728341067224219648"
+                  type: image
+                  url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              account:
+                id: "2"
+                username: dansup
+                acct: dansup
+          - id: "728360119354368000"
+            type: follow
+            created_at: "2026-09-14T18:54:49.000Z"
+            account:
+              id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas
+              url: https://pixelfed.social/jonas
+      - status: 422
+        body:
+          message: The max id field must be at least 1.
+          errors:
+            max_id: [The max id field must be at least 1.]

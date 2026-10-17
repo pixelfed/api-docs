@@ -1,0 +1,350 @@
+title: Collections
+description: Curated sets of posts that sit on a profile, like an album.
+icon: rectangle-stack
+section: pixelfed
+order: 0
+endpoints:
+  - id: list-collections
+    method: GET
+    path: /api/v1.1/collections/accounts/{id}
+    title: List an account's collections
+    description: "Returns an account's collections, newest first, 9 per page. Everyone sees published `public` collections, followers also see `private` ones, and the owner sees everything including drafts and collections that were never published."
+    compat: pixelfed
+    result: collections
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account ID.
+      query:
+        - name: page
+          type: integer
+          desc: "Page number, starting at `1`."
+    callout:
+      text: "For a private (locked) account the list is only returned to its followers, the owner and admins. Everyone else gets a 404."
+    returns: "an array of Collection. Paginate with `page` until you get an empty array."
+    example:
+      path: /api/v1.1/collections/accounts/2
+      query: { page: 1 }
+    responses:
+      - status: 200
+        body:
+          - id: "691204417380331520"
+            pid: "2"
+            visibility: public
+            title: Harbour mornings
+            description: One winter of walks before work
+            thumb: https://pixelfed.social/storage/m/_v2/2/harbour_thumb.jpg
+            url: https://pixelfed.social/c/691204417380331520
+            updated_at: "2026-03-30T06:48:12.000000Z"
+            published_at: "2026-02-11T07:05:41.000000Z"
+            avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+            username: dansup
+            post_count: 14
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-own-collections
+    method: GET
+    path: /api/v1.1/collections/self
+    title: List your collections
+    description: "Returns every collection owned by the token's account, whatever its visibility, newest first, 9 per page. Each one includes an `items` preview with up to 11 of its posts."
+    compat: pixelfed
+    result: collections
+    params:
+      query:
+        - name: page
+          type: integer
+          desc: "Page number, starting at `1`."
+    callout:
+      text: "This is the easiest way to find the ID of a draft you started in the web interface, since drafts have no title yet."
+    returns: "an array of Collection, each with an `items` array of posts in the [Pixelfed entity](/api/pixelfed-entities) shape."
+    responses:
+      - status: 200
+        body:
+          - id: "691204417380331520"
+            pid: "2"
+            visibility: public
+            title: Harbour mornings
+            description: One winter of walks before work
+            thumb: https://pixelfed.social/storage/m/_v2/2/harbour_thumb.jpg
+            url: https://pixelfed.social/c/691204417380331520
+            updated_at: "2026-03-30T06:48:12.000000Z"
+            published_at: "2026-02-11T07:05:41.000000Z"
+            avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+            username: dansup
+            post_count: 14
+            items:
+              - id: "728341901556629504"
+                shortcode: W4kQ2pLm
+                url: https://pixelfed.social/p/dansup/728341901556629504
+                content_text: Golden hour at the pier
+                visibility: public
+                pf_type: photo
+                media_attachments:
+                  - id: "728341067224219648"
+                    type: image
+                    url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+                account:
+                  id: "2"
+                  username: dansup
+
+  - id: get-collection
+    method: GET
+    path: /api/v1.1/collections/view/{id}
+    title: Get a collection
+    description: "Returns one collection's details. Published `public` collections are visible to anyone with a token; `private` ones only to the owner's followers; drafts and unpublished collections only to the owner (and admins)."
+    compat: pixelfed
+    result: collection
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The collection ID.
+    returns: "a Collection. The posts are fetched separately with [List collection posts](/api/collections#list-collection-items)."
+    example:
+      path: /api/v1.1/collections/view/691204417380331520
+    responses:
+      - status: 200
+        body:
+          id: "691204417380331520"
+          pid: "2"
+          visibility: public
+          title: Harbour mornings
+          description: One winter of walks before work
+          thumb: https://pixelfed.social/storage/m/_v2/2/harbour_thumb.jpg
+          url: https://pixelfed.social/c/691204417380331520
+          updated_at: "2026-03-30T06:48:12.000000Z"
+          published_at: "2026-02-11T07:05:41.000000Z"
+          avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          username: dansup
+          post_count: 14
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-collection-items
+    method: GET
+    path: /api/v1.1/collections/items/{id}
+    title: List collection posts
+    description: "Returns the posts in a collection in their saved order, with the same visibility rules as [Get a collection](/api/collections#get-collection). Posts that were deleted, made private or have no media are skipped, so a page can come back shorter than expected."
+    compat: pixelfed
+    result: posts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The collection ID.
+      query:
+        - name: page
+          type: integer
+          desc: "Page number, starting at `1`. Defaults to `1`."
+    callout:
+      text: "Pages are about 10 posts. The ranges are inclusive at both ends, so a page can hold 11 posts and the last post of one page is repeated as the first of the next. De-duplicate by `id` when you append pages."
+    returns: "an array of Status in the [Pixelfed entity](/api/pixelfed-entities) shape (not the Mastodon one)."
+    example:
+      path: /api/v1.1/collections/items/691204417380331520
+      query: { page: 1 }
+    responses:
+      - status: 200
+        body:
+          - _v: 1
+            id: "728341901556629504"
+            shortcode: W4kQ2pLm
+            uri: https://pixelfed.social/p/dansup/728341901556629504
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the pier
+            content_text: Golden hour at the pier
+            created_at: "2026-09-14T17:42:10.000Z"
+            favourites_count: 31
+            reblogs_count: 2
+            reply_count: 4
+            sensitive: false
+            visibility: public
+            pf_type: photo
+            local: true
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+                preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+                description: Wooden pier at sunset, two people fishing at the far end
+                mime: image/jpeg
+                blurhash: UJF}Qo~W9aIV4.xuRjWB00WB-pof
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+              avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+              local: true
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: update-collection
+    method: POST
+    path: /api/v1.1/collections/update/{id}
+    title: Update a collection
+    description: "Sets a collection's title, description and visibility. HTML tags are stripped. All three fields are written on every call, so an omitted `title` or `description` is cleared."
+    compat: pixelfed
+    result: collection
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: A collection you own.
+      body:
+        - name: title
+          type: string
+          desc: Up to 50 characters.
+        - name: description
+          type: string
+          desc: Up to 500 characters.
+        - name: visibility
+          type: string
+          required: true
+          desc: "One of `public`, `private` (followers only) or `draft`."
+    callout:
+      icon: information-circle
+      text: "There is no token-authenticated route that creates or publishes a collection. A new collection is made in the web interface: visiting `/i/collections/create` while signed in creates an empty draft (or reuses your existing unpublished one), and the web editor's publish step sets `published_at` once the collection has at least one post. This endpoint never sets `published_at`, so a collection that was never published stays out of other people's [lists](/api/collections#list-collections) even when its `visibility` is `public`."
+    returns: the updated Collection.
+    example:
+      path: /api/v1.1/collections/update/691204417380331520
+      body:
+        title: Harbour mornings
+        description: One winter of walks before work
+        visibility: public
+    responses:
+      - status: 200
+        body:
+          id: "691204417380331520"
+          pid: "2"
+          visibility: public
+          title: Harbour mornings
+          description: One winter of walks before work
+          thumb: https://pixelfed.social/storage/m/_v2/2/harbour_thumb.jpg
+          url: https://pixelfed.social/c/691204417380331520
+          updated_at: "2026-10-17T09:14:03.000000Z"
+          published_at: "2026-02-11T07:05:41.000000Z"
+          avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          username: dansup
+          post_count: 14
+      - status: 422
+        body:
+          message: The visibility field is required.
+          errors:
+            visibility: [The visibility field is required.]
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: add-collection-item
+    method: POST
+    path: /api/v1.1/collections/add
+    title: Add a post to a collection
+    description: "Appends one of your own posts to the end of a collection you own. Only `public` or `unlisted` photo, album and video posts can be added. Adding a post that is already there does nothing and still succeeds."
+    compat: pixelfed
+    result: post
+    params:
+      body:
+        - name: collection_id
+          type: string
+          required: true
+          desc: A collection you own.
+        - name: post_id
+          type: string
+          required: true
+          desc: One of your own posts.
+    callout:
+      text: "A collection holds at most 100 posts by default. The instance's real limit is `limits.collections.max_collection_length` in `GET /api/v2.1/config`."
+    returns: "the added post as a Status in the [Pixelfed entity](/api/pixelfed-entities) shape."
+    example:
+      body:
+        collection_id: "691204417380331520"
+        post_id: "728341901556629504"
+    responses:
+      - status: 200
+        body:
+          _v: 1
+          id: "728341901556629504"
+          shortcode: W4kQ2pLm
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content_text: Golden hour at the pier
+          visibility: public
+          pf_type: photo
+          media_attachments:
+            - id: "728341067224219648"
+              type: image
+              url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+          account:
+            id: "2"
+            username: dansup
+      - status: 400
+        body:
+          error: You can only add 100 posts per collection
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: remove-collection-item
+    method: POST
+    path: /api/v1.1/collections/remove
+    title: Remove a post from a collection
+    description: "Takes a post out of a collection you own and renumbers the remaining posts. The post itself is not deleted. You cannot remove the last post; delete the collection instead."
+    compat: pixelfed
+    result: result
+    params:
+      body:
+        - name: collection_id
+          type: string
+          required: true
+          desc: A collection you own.
+        - name: post_id
+          type: string
+          required: true
+          desc: The post to remove.
+    returns: "the number `200`."
+    example:
+      body:
+        collection_id: "691204417380331520"
+        post_id: "728341901556629504"
+    responses:
+      - status: 200
+        body: 200
+      - status: 400
+        body:
+          error: You cannot delete the only post of a collection!
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: delete-collection
+    method: DELETE
+    path: /api/v1.1/collections/delete/{id}
+    title: Delete a collection
+    description: "Deletes a collection you own. The posts in it are kept; only the collection and its list of items are removed."
+    compat: pixelfed
+    result: result
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: A collection you own.
+    callout:
+      text: "Send `Accept: application/json`. Without it the server answers with a redirect to `/` instead of a JSON body."
+    returns: "the number `200`."
+    example:
+      path: /api/v1.1/collections/delete/691204417380331520
+    responses:
+      - status: 200
+        body: 200
+      - status: 404
+        body:
+          error: Record not found

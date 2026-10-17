@@ -1,0 +1,301 @@
+title: Instance
+description: Server information, limits and feature flags for a Pixelfed instance.
+icon: server
+section: resources
+order: 1
+endpoints:
+  - id: get-instance-v2
+    method: GET
+    path: /api/v2/instance
+    title: Get instance (v2)
+    description: "Returns the server's name, version, upload limits, rules and contact account in the Mastodon v2 shape. The body is cached for 30 minutes, except `registrations`, which is read live on every request."
+    compat: mastodon
+    auth: false
+    result: instance
+    callout:
+      icon: information-circle
+      text: "Pixelfed does not offer polls or translation through this endpoint, so `polls` limits are all `0` and `translation.enabled` is `false`. `urls.streaming` is always `null`. Use [Get streaming config](/api/instance#get-streaming-config) instead."
+    returns: an Instance.
+    responses:
+      - status: 200
+        body:
+          domain: pixelfed.social
+          title: Pixelfed
+          version: 3.5.3 (compatible; Pixelfed 0.15.0)
+          source_url: https://github.com/pixelfed/pixelfed
+          description: Photo sharing for everyone
+          usage:
+            users:
+              active_month: 18342
+          thumbnail:
+            url: https://pixelfed.social/storage/headers/default.jpg
+            blurhash: U4Rfh2-;fQ-;~qfQfQfQfQfQfQfQ~qfQfQfQ
+            versions:
+              "@1x": https://pixelfed.social/storage/headers/default.jpg
+              "@2x": https://pixelfed.social/storage/headers/default.jpg
+          languages: [en]
+          configuration:
+            urls:
+              streaming: null
+              status: null
+            vapid:
+              public_key: BEm0Vh3_6Yj4kq0WqD1y3x6m2t0cR7oNw9pL5aZbXcVdEfGhIjKlMnOpQrStUvWxYz01234567890abcdEFG
+            accounts:
+              max_featured_tags: 0
+            direct_messages:
+              max_characters: 2000
+              max_media_attachments: 4
+              group_chats:
+                enabled: true
+                max_participants: 10
+            statuses:
+              max_characters: 500
+              max_media_attachments: 4
+              characters_reserved_per_url: 23
+            media_attachments:
+              supported_mime_types: [image/jpeg, image/jpg, image/png, image/gif, video/mp4]
+              image_size_limit: 15360000
+              image_matrix_limit: 2073600
+              video_size_limit: 15360000
+              video_frame_rate_limit: 120
+              video_matrix_limit: 2073600
+            polls:
+              max_options: 0
+              max_characters_per_option: 0
+              min_expiration: 0
+              max_expiration: 0
+            translation:
+              enabled: false
+          registrations:
+            enabled: true
+            approval_required: false
+            message: null
+            url: null
+          contact:
+            email: admin@pixelfed.social
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+              url: https://pixelfed.social/dansup
+              avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          rules:
+            - id: "1"
+              text: Be kind. No harassment or hate speech.
+            - id: "2"
+              text: Only post photos and videos you have the rights to share.
+
+  - id: get-instance-v1
+    method: GET
+    path: /api/v1/instance
+    title: Get instance (v1)
+    description: "The older Mastodon v1 shape of the same server information, kept for clients that have not moved to v2. It adds `stats` (local users, local posts and known domains, refreshed every 12 hours) and Pixelfed's `mobile_registration` flag. The whole body is cached for 30 minutes."
+    compat: mastodon
+    auth: false
+    result: instance
+    callout:
+      icon: information-circle
+      text: "The `polls` values here are hardcoded and do not mean Pixelfed accepts polls from this API. `urls.streaming_api` is always `null`."
+    returns: an Instance in the v1 shape.
+    responses:
+      - status: 200
+        body:
+          uri: pixelfed.social
+          title: Pixelfed
+          short_description: Photo sharing for everyone
+          description: Pixelfed is an image sharing platform, an ethical alternative to centralized platforms.
+          email: admin@pixelfed.social
+          version: 3.5.3 (compatible; Pixelfed 0.15.0)
+          urls:
+            streaming_api: null
+          stats:
+            user_count: 104218
+            status_count: 2871405
+            domain_count: 31877
+          thumbnail: https://pixelfed.social/storage/headers/default.jpg
+          languages: [en]
+          registrations: true
+          approval_required: false
+          contact_account:
+            id: "2"
+            username: dansup
+            acct: dansup
+            display_name: dansup
+          rules:
+            - id: "1"
+              text: Be kind. No harassment or hate speech.
+          mobile_registration: true
+          configuration:
+            media_attachments:
+              image_matrix_limit: 2073600
+              image_size_limit: 15360000
+              supported_mime_types: [image/jpeg, image/jpg, image/png, image/gif, video/mp4]
+              video_frame_rate_limit: 120
+              video_matrix_limit: 2073600
+              video_size_limit: 15360000
+            polls:
+              max_characters_per_option: 50
+              max_expiration: 2629746
+              max_options: 4
+              min_expiration: 300
+            statuses:
+              characters_reserved_per_url: 23
+              max_characters: 500
+              max_media_attachments: 4
+
+  - id: get-config
+    method: GET
+    path: /api/v2.1/config
+    title: Get Pixelfed config
+    description: "Pixelfed's own summary of what this server allows: whether OAuth and stories are on, whether video uploads are accepted, which timelines exist, and the limits for profiles, collections, direct messages, media and captions. Read it at startup to adapt your UI instead of hardcoding limits."
+    compat: pixelfed
+    auth: false
+    result: config
+    callout:
+      icon: information-circle
+      text: "`features.video` is `true` only when `video/mp4` is in the server's accepted media types. Media size limits are in bytes, but `max_avatar_size` is in kilobytes."
+    returns: a config object.
+    responses:
+      - status: 200
+        body:
+          version: 0.15.0
+          oauth: true
+          signup:
+            curated: false
+            mobile_registration: true
+          features:
+            stories: true
+            video: true
+            timelines:
+              local: true
+              network: true
+          limits:
+            account:
+              max_avatar_size: 2000
+              max_bio_length: 125
+              max_name_length: 30
+              min_password_length: 8
+            collections:
+              max_collection_length: 100
+            direct_messages:
+              max_characters: 2000
+              max_media_attachments: 4
+              group_chats:
+                enabled: true
+                max_participants: 10
+            media:
+              image_size_limit: 15360000
+              max_album_limit: 4
+              max_alt_text_length: 1000
+              supported_mime_types: [image/jpeg, image/jpg, image/png, image/gif, video/mp4]
+              video_size_limit: 15360000
+            statuses:
+              max_characters: 500
+
+  - id: list-peers
+    method: GET
+    path: /api/v1/instance/peers
+    title: List known peers
+    description: "Returns the domains this server federates with: instances that are not banned and whose nodeinfo was fetched in the last 8 days. The list is cached for 24 hours."
+    compat: mastodon
+    auth: false
+    result: peers
+    callout:
+      icon: lock-closed
+      text: "Peers are hidden by default. Unless the admin sets `INSTANCE_SHOW_PEERS=true`, this returns an empty array."
+    returns: an array of domain strings.
+    responses:
+      - status: 200
+        body: [mastodon.social, pixey.org, metapixl.com, aus.social]
+      - status: 200
+        body: []
+
+  - id: list-custom-emojis
+    method: GET
+    path: /api/v1/custom_emojis
+    title: List custom emoji
+    description: "Returns the custom emoji uploaded on this server. Emoji learned from remote servers are not included. Disabled emoji stay in the list with `visible_in_picker` set to `false`. The list is cached until an admin changes it."
+    compat: mastodon
+    auth: false
+    result: emojis
+    returns: an array of CustomEmoji.
+    responses:
+      - status: 200
+        body:
+          - shortcode: pixelfed
+            url: https://pixelfed.social/storage/emoji/pixelfed.png
+            static_url: https://pixelfed.social/storage/emoji/pixelfed.png
+            visible_in_picker: true
+          - shortcode: blobcat
+            url: https://pixelfed.social/storage/emoji/blobcat.png
+            static_url: https://pixelfed.social/storage/emoji/blobcat.png
+            visible_in_picker: false
+
+  - id: list-announcements
+    method: GET
+    path: /api/v1/announcements
+    title: List announcements
+    description: Exists for Mastodon client compatibility. Pixelfed has no server announcements, so this always returns an empty array.
+    compat: mastodon
+    scope: read
+    result: announcements
+    returns: an empty array.
+    responses:
+      - status: 200
+        body: []
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: get-streaming-config
+    method: GET
+    path: /api/v2/streaming/config
+    title: Get streaming config
+    description: "Returns the Pusher compatible websocket settings your client needs to connect for live updates. It only returns values when the server's broadcast driver is `pusher`. Otherwise it returns an empty array and there is no streaming to connect to."
+    compat: pixelfed
+    auth: false
+    result: streaming
+    returns: "an object with `host`, `port`, `key` and `cluster`, or an empty array."
+    responses:
+      - status: 200
+        body:
+          host: ws.pixelfed.social
+          port: "443"
+          key: 6c2f1a8e9b0d4e7f3a21
+          cluster: mt1
+      - status: 200
+        body: []
+
+  - id: get-push-gateway-state
+    method: GET
+    path: /api/v1.1/nag/state
+    title: Get push gateway state
+    description: "Tells the official Pixelfed apps whether this server can deliver push notifications through the Pixelfed push gateway. `active` is `true` only when the admin turned the gateway on, set a valid gateway API key, and the gateway confirmed it supports this server (that check is cached for 12 hours). It returns 404 when OAuth is turned off on the server."
+    compat: pixelfed
+    auth: false
+    result: state
+    callout:
+      icon: bell
+      text: "See [Push](/api/push) to register a device once the gateway is active."
+    returns: "an object with a boolean `active`."
+    responses:
+      - status: 200
+        body:
+          active: true
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: health-check
+    method: GET
+    path: /api/service/health-check
+    title: Health check
+    description: "A liveness probe for load balancers and uptime monitors. It returns the plain text body `OK` with `Content-Type: text/plain` and no-cache headers. It does not check the database, cache or queues."
+    compat: pixelfed
+    auth: false
+    result: health
+    returns: "the text `OK`."
+    responses:
+      - status: 200
+        body: OK

@@ -1,0 +1,411 @@
+title: Stories
+description: Ephemeral photo and video posts that disappear from the carousel after 24 hours.
+icon: clock
+section: pixelfed
+order: 2
+endpoints:
+  - id: get-carousel
+    method: GET
+    path: /api/v1.2/stories/carousel
+    title: Get the stories carousel
+    description: "Returns one entry per author with active stories, built from the story index in Redis. Your own stories come first, then authors you haven't fully watched, then the rest, newest first. This replaces the v1.1 carousel: there is no separate `self` object, `duration` is in milliseconds (never below 10000), each story carries its `overlays`, and your own stories include a `view_count`."
+    compat: pixelfed
+    result: carousel
+    callout:
+      icon: server
+      text: "Stories are off unless the admin enables them (`STORIES_ENABLED`). Every stories endpoint returns 404 when they are off, so check `features.stories` in `/api/v2.1/config` before showing any stories UI."
+    returns: "an object with a `nodes` array. Each node is an author with their `stories`, ordered oldest first, and `hasViewed` is true once you have seen all of them."
+    responses:
+      - status: 200
+        body:
+          nodes:
+            - id: "self:2"
+              username: dansup
+              username_acct: dansup
+              profile_id: "2"
+              avatar: https://pixelfed.social/storage/avatars/2/avatar.jpg
+              is_author: true
+              stories:
+                - id: "731056220419686400"
+                  type: photo
+                  url: https://pixelfed.social/storage/_esm.t3/Kq9y/xN4bRe2/17aQ3kTz/Ab_t7Lw2nR.jpg
+                  overlays:
+                    - type: text
+                      content: Low tide again
+                      color: "#FFFFFF"
+                      fontSize: 42
+                      x: 540
+                      y: 1500
+                      rotation: 0
+                      scale: 1
+                  duration: 10000
+                  viewed: true
+                  created_at: "2026-10-17T07:12:44+00:00"
+                  view_count: 23
+              url: https://pixelfed.social/stories/dansup
+              hasViewed: true
+            - id: "pfs:412760184563377"
+              username: jonas
+              username_acct: jonas
+              profile_id: "412760184563377"
+              avatar: https://pixelfed.social/storage/avatars/412760184563377/avatar.jpg
+              is_author: false
+              stories:
+                - id: "731061790234124288"
+                  type: photo
+                  url: https://pixelfed.social/storage/_esm.t3/Kq9y/pL0dWe8/17Hc8mYr/Qe_s91Kd2.jpg
+                  overlays: []
+                  duration: 10000
+                  viewed: false
+                  created_at: "2026-10-17T08:34:02+00:00"
+              url: https://pixelfed.social/stories/jonas
+              hasViewed: false
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: get-carousel-v1
+    method: GET
+    path: /api/v1.1/stories/carousel
+    title: Get the stories carousel (v1.1)
+    description: "The older carousel, built with a database query and cached for 5 minutes per viewer. Your own active stories are returned separately under `self` (an empty array when you have none), and `duration` is in seconds. New clients should use [Get the stories carousel](/api/stories#get-carousel)."
+    compat: pixelfed
+    result: carousel
+    returns: "an object with `self` (your own stories, or `[]`) and `nodes`, one entry per followed author, unseen authors first."
+    responses:
+      - status: 200
+        body:
+          self:
+            user:
+              id: "2"
+              username: dansup
+              avatar: https://pixelfed.social/storage/avatars/2/avatar.jpg
+              local: true
+              is_author: true
+            nodes:
+              - id: "731056220419686400"
+                type: photo
+                src: https://pixelfed.social/storage/_esm.t3/Kq9y/xN4bRe2/17aQ3kTz/Ab_t7Lw2nR.jpg
+                duration: 5
+                seen: true
+                created_at: "2026-10-17T07:12:44+00:00"
+          nodes:
+            - id: "pfs:412760184563377"
+              user:
+                id: "412760184563377"
+                username: jonas
+                username_acct: jonas
+                avatar: https://pixelfed.social/storage/avatars/412760184563377/avatar.jpg
+                local: true
+                is_author: false
+              nodes:
+                - id: "731061790234124288"
+                  pid: "412760184563377"
+                  type: photo
+                  src: https://pixelfed.social/storage/_esm.t3/Kq9y/pL0dWe8/17Hc8mYr/Qe_s91Kd2.jpg
+                  duration: 3
+                  seen: false
+                  created_at: "2026-10-17T08:34:02+00:00"
+              url: https://pixelfed.social/stories/jonas
+              seen: false
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: publish-story
+    method: POST
+    path: /api/v1.2/stories/publish
+    title: Publish a story
+    description: "Uploads a photo and publishes it as a story in one request, with up to 4 overlays (text, mentions, links, hashtags) drawn on top by the client. The story goes live immediately and expires 24 hours later. Unlike the v1.1 flow there is no separate upload step, the display time is fixed at 7 seconds, and replies and reactions are turned off, so [Reply to a story](/api/stories#reply-to-story) is rejected for these stories."
+    compat: pixelfed
+    result: story
+    params:
+      body:
+        - name: image
+          type: file
+          required: true
+          desc: "A JPEG or PNG of exactly 1080 by 1920 pixels, at least 10 KB and no larger than the server's `max_photo_size` (in KB). Video is not accepted here."
+        - name: "overlays[]"
+          type: array of objects
+          desc: "Up to 4 overlays. Each one takes `type` (`text`, `mention`, `url` or `hashtag`), `content` (1 to 250 characters), `x`, `y`, `absoluteX`, `absoluteY`, `rotation` (-360 to 360), `scale` and `absoluteScale` (0.1 to 5), `fontSize` (10 to 180) and `color` (hex)."
+        - name: "overlays[][content]"
+          type: string
+          desc: "Checked per type: a `hashtag` must look like `#tag` (up to 29 characters after `#`), a `url` must be `https://`, and a `mention` must be a username that follows you (find one with [Autocomplete mentions](/api/stories#autocomplete-mentions)). The leading `@` is stripped."
+        - name: "overlays[][backgroundColor]"
+          type: string
+          desc: "One of `transparent`, `#FFFFFF` or `#000000`. Validated, but currently not saved."
+        - name: "overlays[][fontFamily]"
+          type: string
+          desc: "One of `default`, `serif`, `mono`, `rounded` or `bold`. Validated, but currently not saved."
+    callout:
+      icon: clock
+      text: "Each account can have 20 active stories at a time. Past that the server answers 418 until older stories expire."
+    returns: "`{ code, msg }` on success. The story then appears in the carousel."
+    example:
+      files: { image: low-tide.jpg }
+      fields:
+        "overlays[0][type]": text
+        "overlays[0][content]": Low tide again
+        "overlays[0][color]": "#FFFFFF"
+        "overlays[0][fontSize]": "42"
+        "overlays[0][x]": "540"
+        "overlays[0][y]": "1500"
+    responses:
+      - status: 200
+        body:
+          code: 200
+          msg: Successfully added
+      - status: 418
+        body:
+          code: 418
+          error: "You’ve reached your daily limit of 20 Stories."
+      - status: 422
+        body:
+          message: The image field has invalid image dimensions.
+          errors:
+            image: [The image field has invalid image dimensions.]
+
+  - id: autocomplete-mentions
+    method: GET
+    path: /api/v1.2/stories/mention-autocomplete
+    title: Autocomplete mentions
+    description: "Suggests accounts for a `mention` overlay. Only accounts that follow you are returned, because only they can be mentioned in a story. Matches the start of the username and returns at most 10, sorted by username."
+    compat: pixelfed
+    result: accounts
+    params:
+      query:
+        - name: q
+          type: string
+          required: true
+          desc: "The username prefix, up to 120 characters. A leading `@` is ignored."
+    returns: "an array of up to 10 accounts in the [Pixelfed shape](/api/pixelfed-entities)."
+    example:
+      query: { q: "@jo" }
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas Berg
+            locked: false
+            followers_count: 318
+            following_count: 204
+            statuses_count: 96
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412760184563377/avatar.jpg
+            local: true
+            has_story: true
+      - status: 422
+        body:
+          message: The q field is required.
+          errors:
+            q: [The q field is required.]
+
+  - id: upload-story
+    method: POST
+    path: /api/v1.1/stories/add
+    title: Upload story media (v1.1)
+    description: "First step of the v1.1 flow. Uploads a photo or MP4 video and creates an inactive story, which nobody can see until you call [Publish a story (v1.1)](/api/stories#publish-story-v1). The 24 hour expiry starts at upload time, not at publish time."
+    compat: pixelfed
+    result: upload
+    params:
+      body:
+        - name: file
+          type: file
+          required: true
+          desc: "A JPEG, PNG or MP4, no larger than the server's `max_photo_size` (in KB)."
+        - name: duration
+          type: integer
+          desc: How long to show it, 0 to 30 seconds. Defaults to 3.
+    returns: "`media_id` (the story ID to publish), `media_url` and `media_type` (`photo` or `video`)."
+    example:
+      files: { file: harbour.mp4 }
+      fields: { duration: "8" }
+    responses:
+      - status: 200
+        body:
+          code: 200
+          msg: Successfully added
+          media_id: "731070114392444928"
+          media_url: https://pixelfed.social/storage/_esm.t3/Kq9y/xN4bRe2/17Zp2cVb/Lm_c8Qe1.mp4?v=1792226184
+          media_type: video
+      - status: 418
+        body:
+          error: You have reached your limit for new Stories today.
+
+  - id: publish-story-v1
+    method: POST
+    path: /api/v1.1/stories/publish
+    title: Publish a story (v1.1)
+    description: "Second step of the v1.1 flow. Makes an uploaded story visible, sets whether followers can reply or react, and pushes it to followers on other servers. Unlike the v1.2 endpoint it accepts video, has no overlays and lets you choose the duration and reply settings."
+    compat: pixelfed
+    result: story
+    params:
+      body:
+        - name: media_id
+          type: string
+          required: true
+          desc: "The `media_id` from [Upload story media (v1.1)](/api/stories#upload-story). Must be your own."
+        - name: duration
+          type: integer
+          required: true
+          desc: How long to show it, 0 to 30 seconds.
+        - name: can_reply
+          type: boolean
+          required: true
+          desc: Whether followers can reply with [Reply to a story](/api/stories#reply-to-story).
+        - name: can_react
+          type: boolean
+          required: true
+          desc: Whether followers can react.
+    returns: "`{ code, msg }`."
+    example:
+      body:
+        media_id: "731070114392444928"
+        duration: 8
+        can_reply: true
+        can_react: true
+    responses:
+      - status: 200
+        body:
+          code: 200
+          msg: Successfully published
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          message: The can reply field is required.
+          errors:
+            can_reply: [The can reply field is required.]
+
+  - id: mark-story-seen
+    method: POST
+    path: /api/v1.1/stories/seen
+    title: Mark a story as seen
+    description: "Records that you viewed a story, so it shows as viewed in the carousel and you appear in the author's viewer list. You must follow the author. Marking your own story returns an empty array and records nothing. For stories from other servers a View activity is sent to the author's server."
+    compat: pixelfed
+    result: result
+    params:
+      body:
+        - name: id
+          type: string
+          required: true
+          desc: The story ID. The story must still be active.
+    returns: "`{ code: 200 }`, or `[]` for your own story."
+    example:
+      body: { id: "731061790234124288" }
+    responses:
+      - status: 200
+        body:
+          code: 200
+      - status: 403
+        body:
+          error: Invalid permission
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-story-viewers
+    method: GET
+    path: /api/v1.2/stories/viewers
+    title: List story viewers
+    description: Lists who has viewed one of your active stories, most recent first, 10 per page.
+    compat: pixelfed
+    result: viewers
+    params:
+      query:
+        - name: sid
+          type: string
+          required: true
+          desc: The story ID, up to 50 characters. Must be your own active story.
+        - name: cursor
+          type: string
+          desc: "The `meta.next_cursor` value from the previous page."
+    returns: "a Laravel cursor page: `data` holds accounts in the [Pixelfed shape](/api/pixelfed-entities) with an added `viewed_at`, and `meta.next_cursor` (or `links.next`) fetches the next page. This is not Link header [Pagination](/api/pagination)."
+    example:
+      query: { sid: "731056220419686400" }
+    responses:
+      - status: 200
+        body:
+          data:
+            - id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas Berg
+              avatar: https://pixelfed.social/storage/avatars/412760184563377/avatar.jpg
+              local: true
+              viewed_at: "2026-10-17T08:41:19+00:00"
+          links:
+            first: null
+            last: null
+            prev: null
+            next: https://pixelfed.social/api/v1.2/stories/viewers?sid=731056220419686400&cursor=eyJpZCI6NzMxMDU5MDAyLCJfcG9pbnRzVG9OZXh0SXRlbXMiOnRydWV9
+          meta:
+            path: https://pixelfed.social/api/v1.2/stories/viewers
+            per_page: 10
+            next_cursor: eyJpZCI6NzMxMDU5MDAyLCJfcG9pbnRzVG9OZXh0SXRlbXMiOnRydWV9
+            prev_cursor: null
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: reply-to-story
+    method: POST
+    path: /api/v1.1/stories/comment
+    title: Reply to a story
+    description: "Sends a private reply to the story's author. It lands in your direct message conversation with them, and is delivered to their server if they are remote. You must follow the author, must not be blocked by them, and the story must allow replies. Stories made with [Publish a story](/api/stories#publish-story) never allow replies."
+    compat: pixelfed
+    result: result
+    params:
+      body:
+        - name: sid
+          type: string
+          required: true
+          desc: The story ID. The story must be active and not expired.
+        - name: caption
+          type: string
+          required: true
+          desc: The reply text.
+    returns: "`{ code, msg }`."
+    example:
+      body:
+        sid: "731061790234124288"
+        caption: Is that the old ferry dock?
+    responses:
+      - status: 200
+        body:
+          code: 200
+          msg: Sent!
+      - status: 403
+        body:
+          error: Invalid permission
+      - status: 422
+        body:
+          error: ""
+
+  - id: delete-story
+    method: POST
+    path: /api/v1.1/stories/self-expire/{id}
+    title: Delete a story
+    description: Expires one of your stories right away. It is removed from the carousel and a delete is sent to followers on other servers.
+    compat: pixelfed
+    result: result
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The story ID. Must be your own.
+    returns: "`{ code, msg }`."
+    example:
+      path: /api/v1.1/stories/self-expire/731056220419686400
+    responses:
+      - status: 200
+        body:
+          code: 200
+          msg: Successfully deleted
+      - status: 404
+        body:
+          error: Record not found

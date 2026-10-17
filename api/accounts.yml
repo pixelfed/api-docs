@@ -1,0 +1,1027 @@
+title: Accounts
+description: Profiles, relationships and the signed in account.
+icon: user
+section: resources
+order: 2
+endpoints:
+  - id: verify-credentials
+    method: GET
+    path: /api/v1/accounts/verify_credentials
+    title: Verify credentials
+    description: "Returns the account that owns the token, plus a `source` object with the posting defaults. Call it right after sign in to confirm the token works and to learn the account ID. Suspended or deactivated accounts get a 403."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: account
+    callout:
+      icon: information-circle
+      text: "With `_pe`, the response also includes a `settings` object with the account's Pixelfed preferences (`reduce_motion`, `video_autoplay`, `default_license`, `crawlable` and more). In `source`, `privacy` only reflects whether the account is locked, and `fields` is always empty."
+    returns: an Account with `source`.
+    responses:
+      - status: 200
+        body:
+          id: "2"
+          username: dansup
+          acct: dansup
+          display_name: dansup
+          discoverable: true
+          locked: false
+          followers_count: 1284
+          following_count: 312
+          statuses_count: 468
+          note: Pixelfed developer
+          url: https://pixelfed.social/dansup
+          avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          avatar_static: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          header: https://pixelfed.social/storage/headers/missing.png
+          header_static: https://pixelfed.social/storage/headers/missing.png
+          bot: false
+          emojis: []
+          fields: []
+          last_status_at: null
+          created_at: "2019-03-02T18:21:07.000000Z"
+          source:
+            privacy: public
+            sensitive: false
+            language: en
+            note: Pixelfed developer
+            fields: []
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: update-credentials
+    method: PATCH
+    path: /api/v1/accounts/update_credentials
+    title: Update profile
+    description: "Updates the signed in account's profile and Pixelfed preferences. Send only the fields you want to change. `POST` is accepted on the same path for clients that cannot send `PATCH`."
+    compat: mastodon
+    pe: true
+    scope: write
+    result: account
+    params:
+      body:
+        - name: display_name
+          type: string
+          desc: Up to 30 characters. HTML is stripped.
+        - name: note
+          type: string
+          desc: The bio, up to 200 characters. HTML is stripped and links are added automatically.
+        - name: avatar
+          type: file
+          desc: "A JPEG or PNG, sent as `multipart/form-data`. The size limit is `limits.account.max_avatar_size` from [Get Pixelfed config](/api/instance#get-config) (2000 KB by default)."
+        - name: locked
+          type: boolean
+          desc: Make the account private, so new followers need your approval.
+        - name: website
+          type: string
+          desc: "Up to 120 characters. Must start with `http://` or `https://` and contain a dot, otherwise it is cleared. Links to banned domains are also cleared."
+        - name: "source[privacy]"
+          type: string
+          desc: "Default visibility for new posts: `public`, `unlisted` or `private`. Always stored as `private` while the account is locked."
+        - name: "source[language]"
+          type: string
+          desc: The interface language code. Unsupported codes are ignored.
+        - name: license
+          type: integer
+          desc: "Default license for new media: `1` All Rights Reserved, `5` Public Domain, `6` CC0, `11` CC BY, `12` CC BY-SA, `13` CC BY-NC, `14` CC BY-NC-SA, `15` CC BY-ND, `16` CC BY-NC-ND."
+        - name: sync_licenses
+          type: boolean
+          desc: "With `license`, also apply the new license to your existing media. Allowed twice per 24 hours."
+        - name: media_descriptions
+          type: boolean
+          desc: Remind you to add alt text before posting.
+        - name: crawlable
+          type: boolean
+          desc: Let search engines index your profile.
+        - name: is_suggestable
+          type: boolean
+          desc: Allow the account to be suggested to other people.
+        - name: show_profile_follower_count
+          type: boolean
+          desc: "Show your follower count. When off, others see `0` and your followers list is empty to them."
+        - name: show_profile_following_count
+          type: boolean
+          desc: "Show your following count. When off, others see `0` and your following list is empty to them."
+        - name: public_dm
+          type: boolean
+          desc: Accept direct messages from accounts you do not follow.
+        - name: disable_embeds
+          type: boolean
+          desc: Stop your posts and profile from being embedded on other sites.
+        - name: show_atom
+          type: boolean
+          desc: Publish an Atom feed of your posts.
+        - name: reduce_motion
+          type: boolean
+          desc: Interface preference for reduced motion.
+        - name: high_contrast_mode
+          type: boolean
+          desc: Interface preference for high contrast.
+        - name: video_autoplay
+          type: boolean
+          desc: Interface preference for autoplaying videos.
+    callout:
+      icon: information-circle
+      text: "Mastodon fields such as `header`, `fields_attributes`, `bot`, `discoverable` and `source[sensitive]` are ignored. Without `_pe`, the response is the Account plus `bio` (the plain text note) and the account's other Pixelfed settings (`disable_embeds`, `hide_like_counts` and similar) merged in at the top level."
+    returns: the updated Account.
+    example:
+      body:
+        display_name: dansup
+        note: Film and fog, mostly. Tallinn and the Baltic coast.
+        locked: false
+        website: https://dansup.example
+    responses:
+      - status: 200
+        body:
+          id: "2"
+          username: dansup
+          acct: dansup
+          display_name: dansup
+          discoverable: true
+          locked: false
+          followers_count: 1284
+          following_count: 312
+          statuses_count: 468
+          note: Film and fog, mostly. Tallinn and the Baltic coast.
+          url: https://pixelfed.social/dansup
+          avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          avatar_static: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          header: https://pixelfed.social/storage/headers/missing.png
+          header_static: https://pixelfed.social/storage/headers/missing.png
+          bot: false
+          emojis: []
+          fields: []
+          last_status_at: null
+          created_at: "2019-03-02T18:21:07.000000Z"
+          bio: Film and fog, mostly. Tallinn and the Baltic coast.
+          advanced_atom: false
+          disable_embeds: false
+          mutual_mention_notifications: false
+          hide_collections: false
+          hide_like_counts: false
+          hide_groups: false
+          hide_stories: false
+          disable_cw: false
+      - status: 422
+        body:
+          message: The display name field must not be greater than 30 characters.
+          errors:
+            display_name: [The display name field must not be greater than 30 characters.]
+      - status: 422
+        body:
+          error: You can only sync licenses twice per 24 hours
+
+  - id: get-account
+    method: GET
+    path: /api/v1/accounts/{id}
+    title: Get an account
+    description: Returns a single local or remote account by ID. Accounts on domains the server has banned return 404.
+    compat: mastodon
+    pe: true
+    scope: read
+    result: account
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account ID.
+    returns: an Account.
+    example:
+      path: /api/v1/accounts/412760184563377
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          username: jonas
+          acct: jonas
+          display_name: Jonas Berg
+          discoverable: true
+          locked: true
+          followers_count: 211
+          following_count: 190
+          statuses_count: 87
+          note: Long exposures and longer walks.
+          url: https://pixelfed.social/jonas
+          avatar: https://pixelfed.social/storage/avatars/412/760/184/563/377/avatar.jpg
+          avatar_static: https://pixelfed.social/storage/avatars/412/760/184/563/377/avatar.jpg
+          header: https://pixelfed.social/storage/headers/missing.png
+          header_static: https://pixelfed.social/storage/headers/missing.png
+          bot: false
+          emojis: []
+          fields: []
+          last_status_at: null
+          created_at: "2020-06-18T09:12:44.000000Z"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: lookup-account
+    method: GET
+    path: /api/v1/accounts/lookup
+    title: Look up an account
+    description: "Finds an account by its username or full `user@domain` handle. It only finds accounts this server already knows about, it does not fetch unknown remote accounts. Your own domain is treated as local, so `dansup@pixelfed.social` and `dansup` find the same account."
+    compat: mastodon
+    pe: true
+    auth: false
+    result: account
+    params:
+      query:
+        - name: acct
+          type: string
+          required: true
+          desc: "The handle, 3 to 100 characters. A leading `@` is ignored, so `dansup`, `@dansup` and `@jonas@mastodon.social` all work."
+    callout:
+      icon: clock
+      text: "No token is needed, but this endpoint is limited to 50 requests per day per IP address. Unknown and suspended accounts return 400 rather than 404."
+    returns: an Account.
+    example:
+      query: { acct: dansup }
+    responses:
+      - status: 200
+        body:
+          id: "2"
+          username: dansup
+          acct: dansup
+          display_name: dansup
+          locked: false
+          followers_count: 1284
+          following_count: 312
+          statuses_count: 468
+          url: https://pixelfed.social/dansup
+          avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          created_at: "2019-03-02T18:21:07.000000Z"
+      - status: 400
+        body:
+          error: Record not found
+      - status: 429
+        body:
+          message: Too Many Attempts.
+
+  - id: search-accounts
+    method: GET
+    path: /api/v1/accounts/search
+    title: Search accounts
+    description: "Finds accounts whose username starts with `q`, most followed first. Display names are not searched. Remote usernames are stored as `@user@domain`, so start the query with `@` to match remote accounts. Always returns the Mastodon shaped Account."
+    compat: mastodon
+    scope: read
+    result: accounts
+    params:
+      query:
+        - name: q
+          type: string
+          required: true
+          desc: The start of a username, 1 to 30 characters.
+        - name: limit
+          type: integer
+          desc: Up to 20. Defaults to 20.
+        - name: resolve
+          type: boolean
+          desc: Accepted for Mastodon compatibility but ignored. Remote accounts are never fetched.
+    returns: an array of Account.
+    example:
+      query: { q: mar, limit: 5 }
+    responses:
+      - status: 200
+        body:
+          - id: "2"
+            username: dansup
+            acct: dansup
+            display_name: dansup
+            followers_count: 1284
+            url: https://pixelfed.social/dansup
+            avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          - id: "412760184563944"
+            username: marek
+            acct: marek
+            display_name: Marek Tamm
+            followers_count: 96
+            url: https://pixelfed.social/marek
+            avatar: https://pixelfed.social/storage/avatars/412/760/184/563/944/avatar.jpg
+      - status: 422
+        body:
+          message: The q field is required.
+          errors:
+            q: [The q field is required.]
+
+  - id: get-account-statuses
+    method: GET
+    path: /api/v1/accounts/{id}/statuses
+    title: List an account's posts
+    description: "Returns an account's posts, newest first. Reposts are left out unless you ask for `only_reposts`. Followers only posts are included when you follow the account or it is your own. A locked account you do not follow, or an account that has moved, returns an empty array."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: posts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account ID.
+      query:
+        - name: limit
+          type: integer
+          desc: 1 to 100. Defaults to 20.
+        - name: max_id
+          type: string
+          desc: Return posts older than this ID.
+        - name: min_id
+          type: string
+          desc: Return posts newer than this ID.
+        - name: since_id
+          type: string
+          desc: "Return posts newer than this ID. Treated the same as `min_id`."
+        - name: only_media
+          type: boolean
+          desc: Only posts with photos or videos.
+        - name: media_type
+          type: string
+          desc: "`photo` or `video`. Implies `only_media`. Albums that mix both match either."
+        - name: exclude_replies
+          type: boolean
+          desc: Leave out replies.
+        - name: pinned
+          type: boolean
+          desc: Only pinned posts.
+        - name: only_reposts
+          type: boolean
+          desc: "Pixelfed only. Return the account's reposts instead, with the original post in `reblog`."
+    returns: "an array of Status. Paginate with [Pagination](/api/pagination): the `Link` header only carries a `next` URL, set to `max_id` of the last post scanned."
+    example:
+      path: /api/v1/accounts/2/statuses
+      query: { limit: 10, only_media: true }
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            created_at: "2026-09-14T17:42:10.000Z"
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the pier
+            visibility: public
+            sensitive: false
+            favourited: false
+            reblogged: false
+            bookmarked: false
+            favourites_count: 42
+            reblogs_count: 3
+            replies_count: 5
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+                preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+                description: Wooden pier at sunset, two people fishing at the far end
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+      - status: 404
+        body:
+          error: Account not found
+
+  - id: get-account-followers
+    method: GET
+    path: /api/v1/accounts/{id}/followers
+    title: List followers
+    description: "Returns the accounts that follow an account, most recent first. You get an empty array when the account is locked and you do not follow it, or when it hides its follower list. Accounts that have moved return 404."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: accounts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account ID.
+      query:
+        - name: limit
+          type: integer
+          desc: Up to 80. Defaults to 10.
+        - name: max_id
+          type: string
+          desc: Start below this follow record ID.
+        - name: min_id
+          type: string
+          desc: Start above this follow record ID.
+        - name: page
+          type: integer
+          desc: "Switches to simple page numbers. When viewing someone else's list, pages past the first 100 accounts come back empty."
+    callout:
+      icon: arrows-right-left
+      text: "Pagination here is cursor based. The `Link` header carries URLs with a `cursor` parameter, and the `rel` names are swapped compared to [Pagination](/api/pagination): follow the `prev` link to load older followers."
+    returns: an array of Account.
+    example:
+      path: /api/v1/accounts/2/followers
+      query: { limit: 40 }
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas Berg
+            locked: true
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412/760/184/563/377/avatar.jpg
+          - id: "590118272640118784"
+            username: liis
+            acct: liis@mastodon.social
+            display_name: Liis
+            locked: false
+            url: https://mastodon.social/@liis
+            avatar: https://pixelfed.social/storage/cache/avatars/590/118/272/640/118/784/avatar.jpg
+      - status: 404
+        body:
+          error: Account moved
+
+  - id: get-account-following
+    method: GET
+    path: /api/v1/accounts/{id}/following
+    title: List following
+    description: "Returns the accounts an account follows, most recent first. You get an empty array when the account is locked and you do not follow it, or when it hides its following list. Accounts that have moved return 404."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: accounts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account ID.
+      query:
+        - name: limit
+          type: integer
+          desc: Up to 80. Defaults to 10.
+        - name: max_id
+          type: string
+          desc: Start below this follow record ID.
+        - name: min_id
+          type: string
+          desc: Start above this follow record ID.
+        - name: page
+          type: integer
+          desc: "Switches to simple page numbers. When viewing someone else's list, pages past the first 100 accounts come back empty."
+    callout:
+      icon: arrows-right-left
+      text: "Pagination works like [List followers](/api/accounts#get-account-followers): cursor URLs in the `Link` header, with older results under `rel=\"prev\"`."
+    returns: an array of Account.
+    example:
+      path: /api/v1/accounts/412760184563377/following
+      query: { limit: 40 }
+    responses:
+      - status: 200
+        body:
+          - id: "2"
+            username: dansup
+            acct: dansup
+            display_name: dansup
+            locked: false
+            url: https://pixelfed.social/dansup
+            avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: get-relationships
+    method: GET
+    path: /api/v1/accounts/relationships
+    title: Check relationships
+    description: "Returns how you relate to one or more accounts: whether you follow them, they follow you, and whether you block, mute or have a pending request to them. Up to 20 IDs are checked, extra IDs are dropped. Results are cached and refreshed when you follow, block or mute."
+    compat: mastodon
+    pe: true
+    result: relationships
+    params:
+      query:
+        - name: "id[]"
+          type: array of strings
+          required: true
+          desc: "Account IDs. Repeat the parameter for each one, for example `id[]=1&id[]=2`."
+    callout:
+      icon: information-circle
+      text: "`muting_notifications`, `domain_blocking`, `showing_reblogs` and `endorsed` are always `false` here. With `_pe`, each entry also has `following_since` (the follow date, or `null`)."
+    returns: an array of Relationship.
+    example:
+      query: { "id[]": "412760184563377" }
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            following: true
+            followed_by: true
+            blocking: false
+            muting: false
+            muting_notifications: false
+            requested: false
+            domain_blocking: false
+            showing_reblogs: false
+            endorsed: false
+      - status: 422
+        body:
+          message: The id field is required.
+          errors:
+            id: [The id field is required.]
+
+  - id: follow-account
+    method: POST
+    path: /api/v1/accounts/{id}/follow
+    title: Follow an account
+    description: "Follows an account. If the account is locked or on another server, this sends a follow request and the relationship comes back with `requested: true` until it is accepted. Following someone you already follow just returns the current relationship."
+    compat: mastodon
+    scope: follow
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to follow.
+    callout:
+      icon: information-circle
+      text: "Mastodon's `reblogs`, `notify` and `languages` options are ignored. An account can follow at most 7,500 accounts."
+    returns: a Relationship.
+    example:
+      path: /api/v1/accounts/412760184563377/follow
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: false
+          followed_by: false
+          blocking: false
+          muting: false
+          muting_notifications: false
+          requested: true
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 400
+        body:
+          error: You cannot follow this user.
+      - status: 400
+        body:
+          error: Cannot follow an account that has moved!
+
+  - id: unfollow-account
+    method: POST
+    path: /api/v1/accounts/{id}/unfollow
+    title: Unfollow an account
+    description: "Stops following an account. If you only had a pending follow request, the request is withdrawn instead. Unfollowing someone you do not follow is safe and returns the current relationship."
+    compat: mastodon
+    scope: follow
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to unfollow.
+    returns: a Relationship.
+    example:
+      path: /api/v1/accounts/412760184563377/unfollow
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: false
+          followed_by: true
+          blocking: false
+          muting: false
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 400
+        body:
+          error: Invalid profile
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: remove-from-followers
+    method: POST
+    path: /api/v1/accounts/{id}/remove_from_followers
+    title: Remove a follower
+    description: "Makes an account stop following you, without blocking it. Returns 404 if the account does not follow you."
+    compat: mastodon
+    scope: follow
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The follower to remove.
+    callout:
+      icon: exclamation-triangle
+      text: "Unlike Mastodon, the Relationship returned is from the removed account's point of view: its `id` is your own account ID and `following` describes whether they follow you (now `false`). Call [Check relationships](/api/accounts#get-relationships) if you need your side."
+    returns: a Relationship.
+    example:
+      path: /api/v1/accounts/412760184563377/remove_from_followers
+    responses:
+      - status: 200
+        body:
+          id: "2"
+          following: false
+          followed_by: false
+          blocking: false
+          muting: false
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-follow-requests
+    method: GET
+    path: /api/v1/follow_requests
+    title: List follow requests
+    description: "Returns the accounts waiting for you to approve their follow request. There is no pagination, use `limit` to get more at once."
+    compat: mastodon
+    scope: read
+    result: accounts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: 1 to 100. Defaults to 40.
+    returns: an array of Account.
+    example:
+      query: { limit: 40 }
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas Berg
+            locked: true
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412/760/184/563/377/avatar.jpg
+      - status: 422
+        body:
+          message: The limit field must not be greater than 100.
+          errors:
+            limit: [The limit field must not be greater than 100.]
+
+  - id: authorize-follow-request
+    method: POST
+    path: /api/v1/follow_requests/{id}/authorize
+    title: Accept a follow request
+    description: "Accepts a pending follow request, so the account starts following you. For remote accounts, the acceptance is sent to their server in the background."
+    compat: mastodon
+    scope: follow
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The ID of the account that sent the request.
+    returns: "a Relationship with `followed_by: true`."
+    example:
+      path: /api/v1/follow_requests/412760184563377/authorize
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: false
+          followed_by: true
+          blocking: false
+          muting: false
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          error: Cannot accept a request from an account that has migrated!
+
+  - id: reject-follow-request
+    method: POST
+    path: /api/v1/follow_requests/{id}/reject
+    title: Reject a follow request
+    description: "Declines a pending follow request. For remote accounts, the rejection is sent to their server in the background."
+    compat: mastodon
+    scope: follow
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The ID of the account that sent the request.
+    returns: a Relationship.
+    example:
+      path: /api/v1/follow_requests/412760184563377/reject
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: false
+          followed_by: false
+          blocking: false
+          muting: false
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: block-account
+    method: POST
+    path: /api/v1/accounts/{id}/block
+    title: Block an account
+    description: "Blocks an account. Any follow in either direction is removed and their notifications to you are deleted. You cannot block yourself or a server admin, and there is a per account block limit (200 by default)."
+    compat: mastodon
+    scope: write
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to block.
+    returns: "a Relationship with `blocking: true`."
+    example:
+      path: /api/v1/accounts/412760184563377/block
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: false
+          followed_by: false
+          blocking: true
+          muting: false
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 400
+        body:
+          error: You cannot block an admin
+      - status: 422
+        body:
+          error: You cannot block more than 200 accounts
+
+  - id: unblock-account
+    method: POST
+    path: /api/v1/accounts/{id}/unblock
+    title: Unblock an account
+    description: "Removes a block. Follows removed by the block are not restored. Unblocking an account you have not blocked is safe."
+    compat: mastodon
+    scope: write
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to unblock.
+    returns: a Relationship.
+    example:
+      path: /api/v1/accounts/412760184563377/unblock
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: false
+          followed_by: false
+          blocking: false
+          muting: false
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 422
+        body:
+          error: Cannot unblock an account that has migrated!
+
+  - id: mute-account
+    method: POST
+    path: /api/v1/accounts/{id}/mute
+    title: Mute an account
+    description: "Hides an account's posts from your timelines without unfollowing or blocking it. There is a per account mute limit (500 by default)."
+    compat: mastodon
+    scope: write
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to mute.
+    callout:
+      icon: information-circle
+      text: "Mastodon's `notifications` and `duration` options are ignored. Mutes are permanent until you unmute, and trying to mute yourself returns a 500."
+    returns: "a Relationship with `muting: true`."
+    example:
+      path: /api/v1/accounts/412760184563377/mute
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: true
+          followed_by: true
+          blocking: false
+          muting: true
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 422
+        body:
+          error: You cannot mute more than 500 accounts
+
+  - id: unmute-account
+    method: POST
+    path: /api/v1/accounts/{id}/unmute
+    title: Unmute an account
+    description: Removes a mute. Unmuting an account you have not muted is safe.
+    compat: mastodon
+    scope: write
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to unmute.
+    returns: a Relationship.
+    example:
+      path: /api/v1/accounts/412760184563377/unmute
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          following: true
+          followed_by: true
+          blocking: false
+          muting: false
+          muting_notifications: false
+          requested: false
+          domain_blocking: false
+          showing_reblogs: false
+          endorsed: false
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: get-preferences
+    method: GET
+    path: /api/v1/preferences
+    title: Get preferences
+    description: "Returns posting and reading preferences in Mastodon's format. Only `posting:default:visibility` reflects the account (`private` when locked, otherwise `public`). The other values are fixed."
+    compat: mastodon
+    scope: read
+    result: preferences
+    returns: a Preferences object.
+    responses:
+      - status: 200
+        body:
+          "posting:default:visibility": public
+          "posting:default:sensitive": false
+          "posting:default:language": null
+          "reading:expand:media": default
+          "reading:expand:spoilers": false
+
+  - id: list-suggestions
+    method: GET
+    path: /api/v1/suggestions
+    title: List follow suggestions
+    description: "Exists for Mastodon client compatibility and always returns an empty array. To suggest accounts, use the Pixelfed discover endpoints in [Discover](/api/discover)."
+    compat: mastodon
+    scope: read
+    result: suggestions
+    returns: an empty array.
+    responses:
+      - status: 200
+        body: []
+
+  - id: list-endorsements
+    method: GET
+    path: /api/v1/endorsements
+    title: List featured accounts
+    description: Pixelfed does not support featuring accounts on a profile, so this always returns an empty array.
+    compat: mastodon
+    scope: read
+    result: accounts
+    returns: an empty array.
+    responses:
+      - status: 200
+        body: []
+
+  - id: endorse-account
+    method: POST
+    path: /api/v1/accounts/{id}/pin
+    title: Feature an account
+    description: "A compatibility stub. It changes nothing and returns an empty array instead of the Relationship Mastodon returns. It only requires the `read` scope."
+    compat: mastodon
+    scope: read
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to feature. Not checked.
+    returns: an empty array.
+    example:
+      path: /api/v1/accounts/412760184563377/pin
+    responses:
+      - status: 200
+        body: []
+
+  - id: unendorse-account
+    method: POST
+    path: /api/v1/accounts/{id}/unpin
+    title: Unfeature an account
+    description: "A compatibility stub, like [Feature an account](/api/accounts#endorse-account). It changes nothing and returns an empty array."
+    compat: mastodon
+    scope: read
+    result: relationship
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to unfeature. Not checked.
+    returns: an empty array.
+    example:
+      path: /api/v1/accounts/412760184563377/unpin
+    responses:
+      - status: 200
+        body: []
+
+  - id: list-lists
+    method: GET
+    path: /api/v1/lists
+    title: List your lists
+    description: Pixelfed does not have lists, so this always returns an empty array.
+    compat: mastodon
+    scope: read
+    result: lists
+    returns: an empty array.
+    responses:
+      - status: 200
+        body: []
+
+  - id: get-account-lists
+    method: GET
+    path: /api/v1/accounts/{id}/lists
+    title: List lists containing an account
+    description: Pixelfed does not have lists, so this always returns an empty array.
+    compat: mastodon
+    scope: read
+    result: lists
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account ID. Not checked.
+    returns: an empty array.
+    example:
+      path: /api/v1/accounts/412760184563377/lists
+    responses:
+      - status: 200
+        body: []
+
+  - id: get-list-accounts
+    method: GET
+    path: /api/v1/lists/{id}/accounts
+    title: List accounts in a list
+    description: Pixelfed does not have lists, so this always returns an empty array for any list ID.
+    compat: mastodon
+    scope: read
+    result: accounts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The list ID. Not checked.
+    returns: an empty array.
+    example:
+      path: /api/v1/lists/1/accounts
+    responses:
+      - status: 200
+        body: []

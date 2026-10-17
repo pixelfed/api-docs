@@ -1,0 +1,210 @@
+title: Media
+description: Upload photos and video first, then attach them to a post.
+icon: photo
+section: resources
+order: 4
+endpoints:
+  - id: upload-media
+    method: POST
+    path: /api/v2/media
+    title: Upload media
+    description: "Uploads one file and returns an attachment you can pass to [Create a post](/api/statuses#create-post) in `media_ids`. Processing happens in the background, so this answers `202` with `url` set to `null`. Uploads that are not attached to a post within 2 hours are deleted."
+    compat: mastodon
+    scope: write
+    result: media
+    params:
+      body:
+        - name: file
+          type: file
+          required: true
+          desc: "The photo or video, sent as `multipart/form-data`. By default the server accepts `image/jpeg`, `image/png` and `image/gif` up to 15000 KB. Admins can change both, so read `configuration.media_attachments` from [the instance](/api/instance) instead of hard coding them."
+        - name: description
+          type: string
+          desc: "Alt text, up to 1000 characters by default (the instance's `max_altext_length`). Describe the image for people who use screen readers."
+        - name: filter_name
+          type: string
+          desc: "Name of a Pixelfed photo filter, such as `Juno` or `Kyo`. Unknown names are ignored."
+        - name: filter_class
+          type: string
+          desc: "CSS class of that filter, such as `filter-juno`. Unknown classes are ignored."
+        - name: replace_id
+          type: string
+          desc: "Pixelfed only. The ID of an earlier unattached upload of yours, made in the last 2 hours, that this file replaces. The old one is deleted 15 minutes later."
+    callout:
+      icon: clock
+      text: "JPEG, PNG, WebP, HEIC and AVIF images are resized and thumbnailed by a queue. For `video/mp4` the queue takes a thumbnail from the frame at one second, then (if the server has HLS on) builds a stream. Other types are stored as uploaded. Poll [Get an upload](/api/media#get-media) until `url` and `preview_url` settle."
+    returns: "a MediaAttachment, with status `202`. It also carries Pixelfed fields such as `mime`, `license` and `filter_name`."
+    example:
+      files:
+        file: pier.jpg
+      fields:
+        description: Wooden pier at sunset, two people fishing at the far end
+    responses:
+      - status: 202
+        body:
+          id: "728341067224219648"
+          type: image
+          url: null
+          remote_url: null
+          preview_url: https://pixelfed.social/storage/m/_v2/2/pier.jpg?v=1757871611
+          optimized_url: null
+          text_url: null
+          meta: null
+          description: Wooden pier at sunset, two people fishing at the far end
+          license: null
+          is_nsfw: false
+          orientation: null
+          filter_name: null
+          filter_class: null
+          mime: image/jpeg
+          blurhash: U4Rfzst8?bt7ogayj[j[~pfQ9Goe%Mj[WBay
+      - status: 422
+        body:
+          message: "The file field must be a file of type: image/jpeg, image/jpg, image/png, image/gif."
+          errors:
+            file: ["The file field must be a file of type: image/jpeg, image/jpg, image/png, image/gif."]
+      - status: 403
+        body:
+          error: Account size limit reached.
+      - status: 429
+        body:
+          error: ""
+
+  - id: upload-media-v1
+    method: POST
+    path: /api/v1/media
+    title: Upload media (v1)
+    description: "The older upload endpoint, kept for Mastodon clients that still use it. It takes the same file rules and limits as [Upload media](/api/media#upload-media) except `replace_id`, and answers `200` with `url` already filled in. Both `url` and `preview_url` point at the original file until processing finishes."
+    compat: mastodon
+    scope: write
+    result: media
+    params:
+      body:
+        - name: file
+          type: file
+          required: true
+          desc: "The photo or video, sent as `multipart/form-data`. Same types and size limit as the v2 endpoint."
+        - name: description
+          type: string
+          desc: "Alt text, up to 1000 characters by default."
+        - name: filter_name
+          type: string
+          desc: Name of a Pixelfed photo filter. Unknown names are ignored.
+        - name: filter_class
+          type: string
+          desc: CSS class of that filter. Unknown classes are ignored.
+    callout:
+      icon: shield-check
+      text: "Both upload endpoints share these limits: 1250 uploads per 24 hours (`429`), the per account storage quota of 1000000 KB by default when the server enforces it (`403`), and a server blocklist of known bad files, which answers `451`."
+    returns: a MediaAttachment.
+    example:
+      files:
+        file: pier.jpg
+      fields:
+        description: Wooden pier at sunset, two people fishing at the far end
+    responses:
+      - status: 200
+        body:
+          id: "728341067224219648"
+          type: image
+          url: https://pixelfed.social/storage/m/_v2/2/pier.jpg?v=1757871611
+          remote_url: null
+          preview_url: https://pixelfed.social/storage/m/_v2/2/pier.jpg?v=1757871611
+          text_url: null
+          meta: null
+          description: Wooden pier at sunset, two people fishing at the far end
+          mime: image/jpeg
+          blurhash: U4Rfzst8?bt7ogayj[j[~pfQ9Goe%Mj[WBay
+      - status: 451
+        body:
+          error: ""
+
+  - id: get-media
+    method: GET
+    path: /api/v1/media/{id}
+    title: Get an upload
+    description: "Returns one of your uploads while it is still unattached. Once the media is part of a post this returns `404`, so read it from the post instead. When the server stores media in the cloud with fast processing turned off, you get `206` until the file has been moved to the CDN."
+    compat: mastodon
+    scope: read
+    result: media
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The media ID from the upload response.
+    returns: "a MediaAttachment, with status `200` when it is ready or `206` while it is still processing."
+    example:
+      path: /api/v1/media/728341067224219648
+    responses:
+      - status: 200
+        body:
+          id: "728341067224219648"
+          type: image
+          url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+          remote_url: null
+          preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+          text_url: null
+          description: Wooden pier at sunset, two people fishing at the far end
+          mime: image/jpeg
+          blurhash: UJF}Qo~W9aIV4.xuRjWB00WB-pof
+          meta:
+            focus: { x: 0, y: 0 }
+            original:
+              width: 1080
+              height: 1350
+              size: 1080x1350
+              aspect: 0.8
+      - status: 206
+        body:
+          id: "728341067224219648"
+          type: image
+          url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+          preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+          description: Wooden pier at sunset, two people fishing at the far end
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: update-media
+    method: PUT
+    path: /api/v1/media/{id}
+    title: Update alt text
+    description: "Changes the alt text of one of your uploads. Unlike [Get an upload](/api/media#get-media), this also works on media that is already part of a post, and the post shows the new text right away. Only `description` can be changed, a `focus` value is ignored."
+    compat: mastodon
+    scope: write
+    result: media
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The media ID.
+      body:
+        - name: description
+          type: string
+          desc: "The new alt text, up to 1000 characters by default. HTML is sanitized."
+    callout:
+      icon: clock
+      text: "You can update media 10 times per minute. After that you get `429` until the minute is over."
+    returns: a MediaAttachment.
+    example:
+      path: /api/v1/media/728341067224219648
+      body:
+        description: Wooden pier at sunset, two people fishing off the far end
+    responses:
+      - status: 200
+        body:
+          id: "728341067224219648"
+          type: image
+          url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+          preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+          description: Wooden pier at sunset, two people fishing off the far end
+          mime: image/jpeg
+          blurhash: UJF}Qo~W9aIV4.xuRjWB00WB-pof
+      - status: 404
+        body:
+          error: Record not found
+      - status: 429
+        body:
+          error: Too many attempts. Try again in a few minutes.

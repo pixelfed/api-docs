@@ -1,0 +1,316 @@
+title: Discover
+description: Trending posts and hashtags, popular accounts and the server directory.
+icon: globe-alt
+section: pixelfed
+order: 3
+endpoints:
+  - id: get-trending-posts
+    method: GET
+    path: /api/v1.1/discover/posts/trending
+    title: Get trending posts
+    description: "Returns the most liked local, public, non-sensitive photo, album and video posts in a time window. The ranking is cached (25 minutes for `daily`, 4 hours for `monthly`, 24 hours for `yearly`), then posts by accounts you mute or block are removed, so you can get fewer than 30."
+    compat: pixelfed
+    result: posts
+    params:
+      query:
+        - name: range
+          type: string
+          desc: "One of `daily`, `monthly` or `yearly`. Defaults to `yearly` (365 days) when omitted."
+    returns: "an array of up to 30 Statuses in the [Pixelfed shape](/api/pixelfed-entities), most liked first."
+    example:
+      query: { range: daily }
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            shortcode: kG7vQ2pX
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the pier
+            content_text: Golden hour at the pier
+            created_at: "2026-09-14T17:42:10.000Z"
+            favourites_count: 212
+            reblogs_count: 18
+            reply_count: 9
+            sensitive: false
+            visibility: public
+            pf_type: photo
+            local: true
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+                preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+                description: Wooden pier at sunset, two people fishing at the far end
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+              avatar: https://pixelfed.social/storage/avatars/2/avatar.jpg
+      - status: 422
+        body:
+          message: The selected range is invalid.
+          errors:
+            range: [The selected range is invalid.]
+
+  - id: get-trending-hashtags
+    method: GET
+    path: /api/v1.1/discover/posts/hashtags
+    title: Get trending hashtags
+    description: "Returns the hashtags used most in recent posts. Banned, NSFW and admin-excluded tags are skipped. The admin controls the window (`PF_HASHTAGS_TRENDING_RECENCY_MINS`, 14 days by default), the count (`PF_HASHTAGS_TRENDING_LIMIT`, 20) and the cache time (`PF_HASHTAGS_TRENDING_TTL`, 12 hours)."
+    compat: pixelfed
+    result: hashtags
+    returns: "an array of `{ id, total, name, hashtag, url }`, most used first. `name` has the `#`, `hashtag` does not, and `id` and `total` are numbers."
+    responses:
+      - status: 200
+        body:
+          - id: 18342
+            total: 486
+            name: "#autumn"
+            hashtag: autumn
+            url: https://pixelfed.social/discover/tags/autumn
+          - id: 902
+            total: 311
+            name: "#filmphotography"
+            hashtag: filmphotography
+            url: https://pixelfed.social/discover/tags/filmphotography
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: get-network-trending
+    method: GET
+    path: /api/v1.1/discover/posts/network/trending
+    title: Get network trending posts
+    description: "Returns posts trending across the wider fediverse, as suggested by the Beagle service at `beagle.pixelfed.net`. Remote posts are fetched onto this server, posts from blocked domains are dropped, and the result is cached for an hour. Returns `[]` when federation is off, when the admin sets `PF_INSTANCE_USE_BEAGLE_API=false`, or when Beagle can't be reached."
+    compat: pixelfed
+    result: posts
+    returns: "an array of Statuses in the [Pixelfed shape](/api/pixelfed-entities), possibly empty."
+    responses:
+      - status: 200
+        body:
+          - id: "731012004466233344"
+            url: https://photog.example/p/ines/731012004466233344
+            content: First snow on the ridge
+            created_at: "2026-10-16T19:03:51.000Z"
+            favourites_count: 1208
+            sensitive: false
+            visibility: public
+            pf_type: photo
+            local: false
+            media_attachments:
+              - id: "731012009113522176"
+                type: image
+                url: https://photog.example/storage/m/_v2/ridge.jpg
+            account:
+              id: "509981120334872576"
+              username: ines
+              acct: ines@photog.example
+              display_name: Ines
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: get-discover-posts
+    method: GET
+    path: /api/v1/discover/posts
+    title: Get suggested posts
+    description: "Returns a small set of suggested posts for an explore grid. The pool is one recent public, non-sensitive photo per local author from the last 3 months, picked at random and cached for 6 hours, so every user sees the same pool. Posts by accounts you mute or block are removed. The `limit` parameter is validated but ignored: you always get at most 12 posts."
+    compat: pixelfed
+    scope: read
+    result: discover
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "1 to 40. Accepted but has no effect."
+    returns: "an object with a `posts` array of up to 12 Statuses in the Mastodon shape."
+    responses:
+      - status: 200
+        body:
+          posts:
+            - id: "728341901556629504"
+              created_at: "2026-09-14T17:42:10.000Z"
+              url: https://pixelfed.social/p/dansup/728341901556629504
+              content: Golden hour at the pier
+              visibility: public
+              sensitive: false
+              favourites_count: 212
+              media_attachments:
+                - id: "728341067224219648"
+                  type: image
+                  url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              account:
+                id: "2"
+                username: dansup
+                acct: dansup
+      - status: 403
+        body:
+          error: ""
+
+  - id: get-popular-accounts
+    method: GET
+    path: /api/v1.2/discover/accounts/popular
+    title: Get popular accounts
+    description: "Suggests accounts to follow from the 200 public, active profiles with the most followers (local and remote, refreshed every 4 hours). You, accounts you already follow or have requested, accounts you mute or block, and accounts the admin hides from public feeds are left out."
+    compat: pixelfed
+    scope: read
+    result: accounts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: Page size, clamped to 1 to 40. Defaults to 16.
+        - name: cursor
+          type: string
+          desc: "Opaque cursor taken from the `Link` header of the previous page."
+    returns: "an array of accounts in the [Pixelfed shape](/api/pixelfed-entities), most followed first. When there are more, a `Link` header with `rel=\"next\"` carries the next page URL with its `cursor`."
+    example:
+      query: { limit: 2 }
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas Berg
+            locked: false
+            followers_count: 9310
+            following_count: 204
+            statuses_count: 96
+            note_text: Ferries, fog and 35mm.
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412760184563377/avatar.jpg
+            local: true
+          - id: "498812004377211904"
+            username: tove
+            acct: tove@photog.example
+            display_name: Tove
+            locked: false
+            followers_count: 8122
+            url: https://photog.example/tove
+            avatar: https://photog.example/storage/avatars/tove.jpg
+            local: false
+      - status: 403
+        body:
+          error: ""
+
+  - id: get-popular-accounts-v1
+    method: GET
+    path: /api/v1.1/discover/accounts/popular
+    title: Get popular accounts (v1.1)
+    description: "The older version of [Get popular accounts](/api/discover#get-popular-accounts) with the same pool and exclusions, but no paging: it always returns up to 16 accounts."
+    compat: pixelfed
+    scope: read
+    result: accounts
+    returns: "an array of up to 16 accounts in the [Pixelfed shape](/api/pixelfed-entities)."
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas Berg
+            followers_count: 9310
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412760184563377/avatar.jpg
+            local: true
+      - status: 403
+        body:
+          error: ""
+
+  - id: get-landing-directory
+    method: GET
+    path: /api/landing/v1/directory
+    title: Get the profile directory
+    description: "Lists local, public, active profiles that opted in to being suggested, most recently updated first, 20 per page. This feeds the directory on the logged out landing page. It returns 404 when the admin hides the directory (`INSTANCE_LANDING_SHOW_DIRECTORY=false`)."
+    compat: pixelfed
+    auth: false
+    result: directory
+    params:
+      query:
+        - name: cursor
+          type: string
+          desc: "The `meta.next_cursor` value from the previous page."
+    returns: "a Laravel cursor page: `data` holds `{ id, name, username, url, avatar, following_count, followers_count, statuses_count, bio }` (`id` is a number here), and `meta.next_cursor` fetches the next page."
+    responses:
+      - status: 200
+        body:
+          data:
+            - id: 2
+              name: dansup
+              username: dansup
+              url: https://pixelfed.social/dansup
+              avatar: https://pixelfed.social/storage/avatars/2/avatar.jpg
+              following_count: 187
+              followers_count: 1294
+              statuses_count: 342
+              bio: Harbour walks before work. Tallinn.
+          links:
+            first: null
+            last: null
+            prev: null
+            next: https://pixelfed.social/api/landing/v1/directory?cursor=eyJwcm9maWxlcy51cGRhdGVkX2F0IjoiMjAyNi0xMC0xNSJ9
+          meta:
+            path: https://pixelfed.social/api/landing/v1/directory
+            per_page: 20
+            next_cursor: eyJwcm9maWxlcy51cGRhdGVkX2F0IjoiMjAyNi0xMC0xNSJ9
+            prev_cursor: null
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: get-directory-listing
+    method: GET
+    path: /api/v1.1/directory/listing
+    title: Get the server directory listing
+    description: "Returns the data this server submits to the Pixelfed server directory: admin, summary, rules, feature limits, stats and whether it is eligible to be listed. It is meant for the directory service, not for apps, and only answers when you pass the server's directory submission key."
+    compat: pixelfed
+    auth: false
+    result: listing
+    params:
+      query:
+        - name: sk
+          type: string
+          required: true
+          desc: "The server's directory submission key. Missing (or never generated by the admin) gives 404, wrong gives 403."
+    returns: "the listing object, keys sorted alphabetically, with a `_hash` of its contents."
+    example:
+      query: { sk: 3f9a1c7e5b2d48a6 }
+    responses:
+      - status: 200
+        body:
+          _domain: pixelfed.social
+          _hash: 9b1f6c2e0d7a4e58b3c1f2a9d8e7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9
+          _sk: 3f9a1c7e5b2d48a6
+          _ts: 1792118400
+          activitypub_enabled: true
+          admin:
+            id: "2"
+            username: dansup
+            display_name: dansup
+          contact_email: admin@pixelfed.social
+          curated_onboarding: false
+          feature_config:
+            media_types: [image/jpeg, image/png, video/mp4]
+            max_photo_size: 15000
+            max_caption_length: 500
+            max_album_length: 10
+            account_deletion: true
+          features_enabled:
+            stories: true
+          is_eligible: true
+          oauth_enabled: true
+          open_registration: true
+          primary_locale: en
+          stats:
+            user_count: 41822
+            post_count: 2298114
+          summary: Photo sharing for everyone.
+          version: 0.12.6
+      - status: 403
+        body:
+          error: ""
+      - status: 404
+        body:
+          error: Record not found

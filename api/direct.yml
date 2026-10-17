@@ -1,0 +1,903 @@
+title: Direct messages
+description: Private 1:1 threads and group chats between accounts, on this server and across the fediverse.
+icon: paper-airplane
+section: pixelfed
+order: 1
+endpoints:
+  - id: get-unread-count
+    method: GET
+    path: /api/v1.1/direct/unread_count
+    title: Get unread counts
+    description: "Counts conversations, not messages. `primary` is the number of inbox conversations with unread messages that you have not muted; `requests` is the number of pending message requests. Cheap enough to poll for a badge."
+    compat: pixelfed
+    scope: read
+    result: counts
+    returns: "an object with `primary` and `requests` integers."
+    responses:
+      - status: 200
+        body:
+          primary: 2
+          requests: 1
+      - status: 403
+        body:
+          error: "Missing required scope: read"
+
+  - id: list-conversations
+    method: GET
+    path: /api/v1.1/direct/conversations
+    title: List conversations
+    description: "Returns your inbox, most recently active first. Both 1:1 and group conversations are included. A conversation only shows up once it has a message you can see, so one you just started with no messages yet is not listed."
+    compat: pixelfed
+    scope: read
+    result: conversations
+    params:
+      query:
+        - name: filter
+          type: string
+          desc: "`primary` (default) for your inbox, `requests` for message requests from people you don't follow, or `hidden` for conversations you hid."
+        - name: limit
+          type: integer
+          desc: "1 to 40. Defaults to 20."
+        - name: cursor
+          type: string
+          desc: "The `meta.next_cursor` (or `meta.prev_cursor`) value from the previous page."
+    callout:
+      icon: chat-bubble-left-right
+      text: "These `/direct/conversations` endpoints are the current DM API and the only one that supports group chats. The older `/direct/thread` endpoints further down only see 1:1 conversations and are kept for existing clients. Mastodon clients see the same conversations through [Conversations](/api/conversations)."
+    returns: "an object with `data` (an array of Conversation) and `meta`. This list uses cursor paging, not [Pagination](/api/pagination) Link headers: pass `meta.next_cursor` as `cursor` until it is `null`."
+    example:
+      query: { filter: primary, limit: 20 }
+    responses:
+      - status: 200
+        body:
+          data:
+            - id: "731902455120183296"
+              type: dm
+              name: null
+              participants:
+                - id: "412760184563377"
+                  username: jonas
+                  acct: jonas
+                  display_name: Jonas Berg
+                  locked: false
+                  url: https://pixelfed.social/jonas
+                  avatar: https://pixelfed.social/storage/avatars/412/760/jonas.jpg
+                  local: true
+              participant_count: 2
+              state: active
+              unread_count: 1
+              muted: false
+              hidden: false
+              last_read_message_id: "731902611844546560"
+              last_message:
+                id: "731907388210487296"
+                conversation_id: "731902455120183296"
+                sender_id: "412760184563377"
+                is_author: false
+                type: text
+                text: Are you shooting the harbour again on Saturday?
+                media: []
+                meta: null
+                sensitive: false
+                in_reply_to_id: null
+                edited_at: null
+                created_at: "2026-10-16T19:04:22.000Z"
+              created_at: "2026-10-14T08:12:09.000Z"
+              updated_at: "2026-10-16T19:04:22.000Z"
+          meta:
+            filter: primary
+            next_cursor: eyJsYXN0X2FjdGl2aXR5X2F0IjoiMjAyNi0xMC0xNCAwODoxMjowOSIsImlkIjo4ODIxLCJfcG9pbnRzVG9OZXh0SXRlbXMiOnRydWV9
+            prev_cursor: null
+      - status: 422
+        body:
+          message: The selected filter is invalid.
+          errors:
+            filter: [The selected filter is invalid.]
+
+  - id: start-conversation
+    method: POST
+    path: /api/v1.1/direct/conversations
+    title: Start a conversation
+    description: "Finds the conversation you already share with exactly these people, or starts it. One recipient makes a 1:1 chat, several make a group. A conversation is identified by its set of participants, so the same set always returns the same conversation. If you had left that group, you rejoin it."
+    compat: pixelfed
+    scope: write
+    result: conversation
+    params:
+      body:
+        - name: recipient_ids
+          type: array of strings
+          required: true
+          desc: "Account IDs, not counting yourself (your own ID is ignored if included). At most `max_participants - 1`, so 9 by default."
+    callout:
+      icon: information-circle
+      text: "Group chats can be turned off or capped by the server. Read `limits.direct_messages.group_chats` (`enabled`, `max_participants`) from `GET /api/v2.1/config` before offering more than one recipient. `max_participants` counts everyone including you and defaults to 10."
+    returns: "a Conversation, with status `201` when it was created and `200` when it already existed."
+    example:
+      body:
+        recipient_ids: ["412760184563377", "412760184563412"]
+    responses:
+      - status: 201
+        body:
+          id: "731911020536471552"
+          type: group
+          name: null
+          participants:
+            - id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas Berg
+              avatar: https://pixelfed.social/storage/avatars/412/760/jonas.jpg
+              local: true
+            - id: "412760184563412"
+              username: ines
+              acct: ines
+              display_name: Ines Kask
+              avatar: https://pixelfed.social/storage/avatars/412/760/ines.jpg
+              local: true
+          participant_count: 3
+          state: active
+          unread_count: 0
+          muted: false
+          hidden: false
+          last_read_message_id: null
+          last_message: null
+          created_at: "2026-10-17T09:30:51.000Z"
+          updated_at: "2026-10-17T09:30:51.000Z"
+      - status: 400
+        body:
+          error: You need to wait a bit before you can DM another account
+      - status: 422
+        body:
+          error: Group conversations are not enabled.
+
+  - id: get-conversation
+    method: GET
+    path: /api/v1.1/direct/conversations/{id}
+    title: Get a conversation
+    description: "Returns one conversation from your point of view: your state, unread count, mute and hide flags, and the last message you can see. Returns 404 if you are not in it or have left it."
+    compat: pixelfed
+    scope: read
+    result: conversation
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+    returns: a Conversation.
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296
+    responses:
+      - status: 200
+        body:
+          id: "731902455120183296"
+          type: dm
+          name: null
+          participants:
+            - id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas Berg
+              avatar: https://pixelfed.social/storage/avatars/412/760/jonas.jpg
+              local: true
+          participant_count: 2
+          state: active
+          unread_count: 1
+          muted: false
+          hidden: false
+          last_read_message_id: "731902611844546560"
+          last_message:
+            id: "731907388210487296"
+            sender_id: "412760184563377"
+            is_author: false
+            type: text
+            text: Are you shooting the harbour again on Saturday?
+            created_at: "2026-10-16T19:04:22.000Z"
+          created_at: "2026-10-14T08:12:09.000Z"
+          updated_at: "2026-10-16T19:04:22.000Z"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-messages
+    method: GET
+    path: /api/v1.1/direct/conversations/{id}/messages
+    title: List messages
+    description: "Returns messages newest first. Use `max_id` to page back in time and `min_id` to fetch only what arrived since your newest message, which is what you poll with. Messages from accounts you block are left out."
+    compat: pixelfed
+    scope: read
+    result: messages
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+      query:
+        - name: limit
+          type: integer
+          desc: "1 to 50. Defaults to 20."
+        - name: max_id
+          type: string
+          desc: Return messages older than this ID.
+        - name: min_id
+          type: string
+          desc: "Return messages newer than this ID (still sorted newest first). Takes priority over `max_id`."
+    returns: "an object with `data` (an array of Message) and `meta` with `has_more`, `newest_id` and `oldest_id`. Pass `meta.oldest_id` as `max_id` for the next older page."
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/messages
+      query: { limit: 20 }
+    responses:
+      - status: 200
+        body:
+          data:
+            - id: "731907388210487296"
+              conversation_id: "731902455120183296"
+              sender_id: "412760184563377"
+              is_author: false
+              type: text
+              text: Are you shooting the harbour again on Saturday?
+              media: []
+              meta: null
+              sensitive: false
+              in_reply_to_id: null
+              edited_at: null
+              created_at: "2026-10-16T19:04:22.000Z"
+            - id: "731902611844546560"
+              conversation_id: "731902455120183296"
+              sender_id: "2"
+              is_author: true
+              type: photo
+              text: Fog came in right after this one
+              media:
+                - id: "731902598120783872"
+                  type: image
+                  url: https://pixelfed.social/storage/m/_v2/2/fog.jpg
+                  preview_url: https://pixelfed.social/storage/m/_v2/2/fog_thumb.jpg
+                  description: null
+                  mime: image/jpeg
+                  blurhash: U9C%8]of00WB~qj[M{ay4nof%Mj[
+              meta: null
+              sensitive: false
+              in_reply_to_id: null
+              edited_at: null
+              created_at: "2026-10-14T08:12:09.000Z"
+          meta:
+            has_more: false
+            newest_id: "731907388210487296"
+            oldest_id: "731902611844546560"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: send-message
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/messages
+    title: Send a message
+    description: "Sends text, media, or both in one message. `type` is worked out for you: a message with media becomes `photo`, `photos`, `video`, `videos` or `media`, and a message that is just a URL becomes `link`. Replying in a conversation that is still a request for you accepts it."
+    compat: pixelfed
+    scope: write
+    result: message
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+      body:
+        - name: message
+          type: string
+          desc: "The text. Required unless `media_ids` is set. Up to 2000 characters by default (`limits.direct_messages.max_characters` in `GET /api/v2.1/config`)."
+        - name: media_ids
+          type: array of strings
+          desc: "IDs from [Upload media](/api/media#upload-media) that are yours and not used in a post or another message. Up to 4 by default (`limits.direct_messages.max_media_attachments`). Required unless `message` is set."
+        - name: in_reply_to_id
+          type: string
+          desc: A message in this conversation to reply to.
+        - name: sensitive
+          type: boolean
+          desc: Mark the message as sensitive.
+        - name: type
+          type: string
+          desc: "`text` or `emoji`. Only a hint; media and links override it."
+    callout:
+      text: "In a 1:1 conversation that is still a request for the other person, you can send only 1 message (the server's `requests.sender_limit`) until they accept or reply. Further sends return 403."
+    returns: "the new Message, with status `201`."
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/messages
+      body:
+        message: Yes, meet at the pier at 7?
+    responses:
+      - status: 201
+        body:
+          id: "731911388741324800"
+          conversation_id: "731902455120183296"
+          sender_id: "2"
+          is_author: true
+          type: text
+          text: Yes, meet at the pier at 7?
+          media: []
+          meta: null
+          sensitive: false
+          in_reply_to_id: null
+          edited_at: null
+          created_at: "2026-10-17T09:32:18.000Z"
+      - status: 403
+        body:
+          error: You can send more messages once your request is accepted.
+      - status: 422
+        body:
+          error: Invalid media_ids.
+
+  - id: delete-message
+    method: DELETE
+    path: /api/v1.1/direct/conversations/{id}/messages/{messageId}
+    title: Delete a message
+    description: "Deletes one of your own messages for everyone, along with its media and notifications. Remote participants' servers are sent a Delete. Unread counts are adjusted for people who had not read it yet."
+    compat: pixelfed
+    scope: write
+    result: result
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+        - name: messageId
+          type: string
+          required: true
+          desc: A message you sent in that conversation.
+    returns: "`{ \"deleted\": true }`."
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/messages/731911388741324800
+    responses:
+      - status: 200
+        body:
+          deleted: true
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: mark-conversation-read
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/read
+    title: Mark a conversation read
+    description: "Moves your read marker forward to `message_id`, or to the newest message when you leave it out, and recalculates your unread count. The marker never moves backwards."
+    compat: pixelfed
+    scope: write
+    result: state
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+      body:
+        - name: message_id
+          type: string
+          desc: The last message you have seen.
+    returns: "your participant state: `id`, `state`, `unread_count`, `muted`, `hidden` and `last_read_message_id`."
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/read
+      body:
+        message_id: "731907388210487296"
+    responses:
+      - status: 200
+        body:
+          id: "731902455120183296"
+          state: active
+          unread_count: 0
+          muted: false
+          hidden: false
+          last_read_message_id: "731907388210487296"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: accept-request
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/accept
+    title: Accept a message request
+    description: "Moves a conversation from your requests into your inbox. You get requests from people you don't follow unless you accept DMs from everyone. Sending a reply accepts the request too. Calling this on an active conversation does nothing."
+    compat: pixelfed
+    scope: write
+    result: state
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+    returns: your participant state.
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/accept
+    responses:
+      - status: 200
+        body:
+          id: "731902455120183296"
+          state: active
+          unread_count: 1
+          muted: false
+          hidden: false
+          last_read_message_id: null
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: mute-conversation
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/mute
+    title: Mute a conversation
+    description: "Stops notifications for new messages and leaves the conversation out of the `primary` unread count. Messages still arrive and still count in the conversation's own `unread_count`."
+    compat: pixelfed
+    scope: write
+    result: state
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+    returns: your participant state.
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/mute
+    responses:
+      - status: 200
+        body:
+          id: "731902455120183296"
+          state: active
+          unread_count: 0
+          muted: true
+          hidden: false
+          last_read_message_id: "731907388210487296"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: unmute-conversation
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/unmute
+    title: Unmute a conversation
+    description: Turns notifications for the conversation back on.
+    compat: pixelfed
+    scope: write
+    result: state
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+    returns: your participant state.
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/unmute
+    responses:
+      - status: 200
+        body:
+          id: "731902455120183296"
+          state: active
+          unread_count: 0
+          muted: false
+          hidden: false
+          last_read_message_id: "731907388210487296"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: hide-conversation
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/hide
+    title: Hide a conversation
+    description: "Moves the conversation out of `primary` or `requests` and into the `hidden` list, and stops notifications for it. New incoming messages do not unhide it; sending a message yourself does."
+    compat: pixelfed
+    scope: write
+    result: state
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+    returns: your participant state.
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/hide
+    responses:
+      - status: 200
+        body:
+          id: "731902455120183296"
+          state: active
+          unread_count: 0
+          muted: false
+          hidden: true
+          last_read_message_id: "731907388210487296"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: unhide-conversation
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/unhide
+    title: Unhide a conversation
+    description: Puts a hidden conversation back in your inbox (or your requests, if you never accepted it).
+    compat: pixelfed
+    scope: write
+    result: state
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The conversation ID.
+    returns: your participant state.
+    example:
+      path: /api/v1.1/direct/conversations/731902455120183296/unhide
+    responses:
+      - status: 200
+        body:
+          id: "731902455120183296"
+          state: active
+          unread_count: 0
+          muted: false
+          hidden: false
+          last_read_message_id: "731907388210487296"
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: leave-conversation
+    method: POST
+    path: /api/v1.1/direct/conversations/{id}/leave
+    title: Leave a group
+    description: "Leaves a group conversation. Only your view changes: the participant list is the group's identity on the network, so it never shrinks and the others are not told. After leaving, the conversation returns 404 for you; starting a conversation with the same people again rejoins it. 1:1 conversations cannot be left, hide them instead."
+    compat: pixelfed
+    scope: write
+    result: state
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: A group conversation ID.
+    returns: "your participant state, with `state` set to `left`."
+    example:
+      path: /api/v1.1/direct/conversations/731911020536471552/leave
+    responses:
+      - status: 200
+        body:
+          id: "731911020536471552"
+          state: left
+          unread_count: 0
+          muted: false
+          hidden: false
+          last_read_message_id: "731911388741324800"
+      - status: 422
+        body:
+          error: Only group conversations can be left.
+
+  - id: list-mutuals
+    method: GET
+    path: /api/v1.1/direct/compose/mutuals
+    title: List mutuals to message
+    description: "Returns accounts that you follow and that follow you back, 10 at a time, for a \"new message\" picker. Results stop after 5 pages (50 accounts). If your role does not allow direct messages, this returns `[]`."
+    compat: pixelfed
+    result: mutuals
+    params:
+      query:
+        - name: cursor
+          type: integer
+          desc: "The `next_cursor` from the previous page (it is an account ID, returned as a number)."
+    returns: "an object with `data` (an array of Account in the [Pixelfed entity](/api/pixelfed-entities) shape), `has_more`, `next_cursor` and `total_count`."
+    responses:
+      - status: 200
+        body:
+          data:
+            - id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas Berg
+              locked: false
+              followers_count: 208
+              following_count: 190
+              url: https://pixelfed.social/jonas
+              avatar: https://pixelfed.social/storage/avatars/412/760/jonas.jpg
+              local: true
+          has_more: false
+          next_cursor: null
+          total_count: 1
+      - status: 422
+        body:
+          message: The cursor field must be an integer.
+          errors:
+            cursor: [The cursor field must be an integer.]
+
+  - id: lookup-recipient
+    method: POST
+    path: /api/v1.1/direct/lookup
+    title: Look up a recipient
+    description: "Searches accounts by username for the compose screen and returns up to 8 matches, local accounts first. Your own account and accounts that block you are left out. A full handle such as `@jonas@example.social` triggers a WebFinger lookup first, so a remote account you have never seen can be found."
+    compat: pixelfed
+    pe: true
+    result: results
+    params:
+      body:
+        - name: q
+          type: string
+          required: true
+          desc: "2 to 50 characters. A leading `@` is stripped."
+        - name: remote
+          type: boolean
+          desc: "Set when `q` is a remote handle or profile URL. A profile URL is fetched first. With `remote` set, a `q` without a `.` returns `[]`."
+    returns: "an array of results with `local`, `id`, `name` (the username), `privacy`, `avatar` and `account`. With `_pe`, an array of Account in the [Pixelfed entity](/api/pixelfed-entities) shape instead."
+    example:
+      body:
+        q: jon
+    responses:
+      - status: 200
+        body:
+          - local: true
+            id: "412760184563377"
+            name: jonas
+            privacy: true
+            avatar: https://pixelfed.social/storage/avatars/412/760/jonas.jpg
+            account:
+              id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas Berg
+              url: https://pixelfed.social/jonas
+              avatar: https://pixelfed.social/storage/avatars/412/760/jonas.jpg
+              local: true
+      - status: 422
+        body:
+          message: The q field must be at least 2 characters.
+          errors:
+            q: [The q field must be at least 2 characters.]
+
+  - id: get-thread
+    method: GET
+    path: /api/v1.1/direct/thread
+    title: Get a 1:1 thread (legacy)
+    description: "Returns the 1:1 thread with another account, keyed by that account's ID, with 8 messages per page newest first. If you have never messaged them you still get their profile fields with an empty `messages` array and `conversation_id: null`."
+    compat: pixelfed
+    result: thread
+    params:
+      query:
+        - name: pid
+          type: string
+          required: true
+          desc: The other account's ID.
+        - name: max_id
+          type: string
+          desc: Return messages older than this ID.
+        - name: min_id
+          type: string
+          desc: "Return messages newer than this ID. Takes priority over `max_id`."
+    callout:
+      icon: information-circle
+      text: "The `/direct/thread` endpoints are the original DM API used by the web interface and older apps. They are wrappers over the same conversations, but they can only see 1:1 chats and never return group conversations. Use `conversation_id` from this response with the [conversations endpoints](/api/direct#list-messages) to move a client over."
+    returns: "a thread object: the other account's `id`, `name`, `username`, `avatar`, `url`, `muted`, `isLocal`, `domain`, then `messages` and `conversation_id`. In each message, `hidden` is `true` while either side has not accepted the request, and `seen` says whether the other person has read your message (or you theirs)."
+    example:
+      query: { pid: "412760184563377" }
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          name: Jonas Berg
+          username: jonas
+          avatar: https://pixelfed.social/storage/avatars/412/760/jonas.jpg
+          url: https://pixelfed.social/jonas
+          muted: false
+          isLocal: true
+          domain: null
+          created_at: "2020-05-19T11:02:44+00:00"
+          updated_at: "2026-10-01T16:20:05+00:00"
+          timeAgo: 6y
+          lastMessage: ""
+          messages:
+            - id: "731907388210487296"
+              hidden: false
+              isAuthor: false
+              type: text
+              text: Are you shooting the harbour again on Saturday?
+              media: null
+              carousel: []
+              created_at: "2026-10-16T19:04:22+00:00"
+              timeAgo: 14h ago
+              seen: true
+              reportId: "731907388210487296"
+              meta: null
+          conversation_id: "731902455120183296"
+      - status: 403
+        body:
+          error: Invalid permissions for this action
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: send-thread-message
+    method: POST
+    path: /api/v1.1/direct/thread/send
+    title: Send a 1:1 message (legacy)
+    description: "Sends a text message to an account, starting the 1:1 conversation if there isn't one. New accounts may have to wait 72 hours before messaging anyone, depending on server settings."
+    compat: pixelfed
+    result: message
+    params:
+      body:
+        - name: to_id
+          type: string
+          required: true
+          desc: The recipient's account ID.
+        - name: message
+          type: string
+          required: true
+          desc: "1 to 2000 characters by default (`limits.direct_messages.max_characters`)."
+        - name: type
+          type: string
+          required: true
+          desc: "`text` or `emoji`."
+    returns: "the message in the legacy shape. `hidden` is `true` when the recipient has the conversation as a request."
+    example:
+      body:
+        to_id: "412760184563377"
+        message: Yes, meet at the pier at 7?
+        type: text
+    responses:
+      - status: 200
+        body:
+          id: "731911388741324800"
+          hidden: false
+          isAuthor: true
+          type: text
+          text: Yes, meet at the pier at 7?
+          media: null
+          carousel: []
+          created_at: "2026-10-17T09:32:18+00:00"
+          timeAgo: 1s ago
+          seen: false
+          reportId: "731911388741324800"
+          meta: null
+      - status: 400
+        body:
+          error: You need to wait a bit before you can DM another account
+      - status: 403
+        body:
+          error: You can send more messages once your request is accepted.
+
+  - id: upload-thread-media
+    method: POST
+    path: /api/v1.1/direct/thread/media
+    title: Send a photo or video (legacy)
+    description: "Uploads one file and sends it as a 1:1 message in a single step, optionally with text. The upload counts toward your account's storage, and a file on the server's media blocklist is rejected with 451. The conversations API instead takes media uploaded through [Upload media](/api/media#upload-media)."
+    compat: pixelfed
+    result: message
+    params:
+      body:
+        - name: file
+          type: file
+          required: true
+          desc: "The photo or video, as `multipart/form-data`. Allowed types and the size limit are the same as for post media."
+        - name: to_id
+          type: string
+          required: true
+          desc: The recipient's account ID.
+        - name: message
+          type: string
+          desc: "Optional text to send with it, up to 2000 characters by default."
+    returns: "an object with the message `id`, `reportId`, `type` (`photo` or `video`) and the media `url`."
+    example:
+      files: { file: fog.jpg }
+      fields: { to_id: "412760184563377" }
+    responses:
+      - status: 200
+        body:
+          id: "731902611844546560"
+          reportId: "731902611844546560"
+          type: photo
+          url: https://pixelfed.social/storage/m/_v2/2/fog.jpg
+      - status: 403
+        body:
+          error: Account size limit reached.
+      - status: 451
+        body:
+          error: ""
+
+  - id: mark-thread-read
+    method: POST
+    path: /api/v1.1/direct/thread/read
+    title: Mark a 1:1 thread read (legacy)
+    description: "Marks the other person's messages from `sid` onwards as read. Returns the IDs that were newly marked, or `[]` when there was nothing new or no conversation."
+    compat: pixelfed
+    result: ids
+    params:
+      body:
+        - name: pid
+          type: string
+          required: true
+          desc: The other account's ID.
+        - name: sid
+          type: string
+          required: true
+          desc: The oldest message ID to mark read.
+    returns: an array of message ID strings.
+    example:
+      body:
+        pid: "412760184563377"
+        sid: "731907388210487296"
+    responses:
+      - status: 200
+        body: ["731907388210487296"]
+      - status: 403
+        body:
+          error: Invalid permissions for this action
+
+  - id: delete-thread-message
+    method: DELETE
+    path: /api/v1.1/direct/thread/message
+    title: Delete a message (legacy)
+    description: "Deletes one of your own messages by ID. It behaves exactly like [Delete a message](/api/direct#delete-message), including telling remote servers, but doesn't need the conversation ID."
+    compat: pixelfed
+    result: result
+    params:
+      body:
+        - name: id
+          type: string
+          required: true
+          desc: A message you sent.
+    returns: "`[200]`."
+    example:
+      body:
+        id: "731911388741324800"
+    responses:
+      - status: 200
+        body: [200]
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: mute-thread
+    method: POST
+    path: /api/v1.1/direct/thread/mute
+    title: Mute a 1:1 thread (legacy)
+    description: "Mutes your 1:1 conversation with an account, keyed by their account ID. If you have no conversation with them yet, an empty one is created so the mute sticks."
+    compat: pixelfed
+    result: result
+    params:
+      body:
+        - name: id
+          type: string
+          required: true
+          desc: The other account's ID.
+    returns: "`[200]`."
+    example:
+      body:
+        id: "412760184563377"
+    responses:
+      - status: 200
+        body: [200]
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: unmute-thread
+    method: POST
+    path: /api/v1.1/direct/thread/unmute
+    title: Unmute a 1:1 thread (legacy)
+    description: Unmutes your 1:1 conversation with an account. Returns 404 if you have no conversation with them.
+    compat: pixelfed
+    result: result
+    params:
+      body:
+        - name: id
+          type: string
+          required: true
+          desc: The other account's ID.
+    returns: "`[200]`."
+    example:
+      body:
+        id: "412760184563377"
+    responses:
+      - status: 200
+        body: [200]
+      - status: 404
+        body:
+          error: Record not found

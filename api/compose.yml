@@ -1,0 +1,112 @@
+title: Compose & places
+description: Composer limits and defaults, location search, and posts tagged with a place.
+icon: map-pin
+section: pixelfed
+order: 6
+endpoints:
+  - id: get-compose-settings
+    method: GET
+    path: /api/v1.1/compose/settings
+    title: Get compose settings
+    description: "Returns the server's upload limits merged with your own composer defaults, so you can configure a composer before the first upload. Accounts with a role that does not allow posting get 403."
+    compat: pixelfed
+    result: settings
+    returns: "an object with the server limits plus your `default_scope`, `default_license` and `media_descriptions`. `allowed_media_types` is an array when the server allows more than one type. `max_file_size` is in KB."
+    responses:
+      - status: 200
+        body:
+          allowed_media_types: [image/jpeg, image/jpg, image/png, image/gif, video/mp4]
+          max_caption_length: 500
+          default_license: 1
+          media_descriptions: false
+          max_file_size: 15000
+          max_media_attachments: 10
+          max_altext_length: 1000
+          default_scope: public
+      - status: 403
+        body:
+          error: Invalid permissions for this action
+
+  - id: search-locations
+    method: GET
+    path: /api/v1.1/compose/search/location
+    title: Search locations
+    description: "Finds places to tag on a post by name. Write `Name, Country` to narrow by country. Results are partial matches on the name, ordered with places used in recent posts boosted. You get up to 30 results, or up to 360 when the name part is longer than 5 characters."
+    compat: pixelfed
+    result: places
+    params:
+      query:
+        - name: q
+          type: string
+          required: true
+          desc: "The place name, up to 100 characters. Text after the first comma is matched against the country."
+    returns: "an array of `{ id, name, country, url }`. `id` is a number; pass it as the place when you create a post."
+    example:
+      query: { q: "Tallinn, Estonia" }
+    responses:
+      - status: 200
+        body:
+          - id: 61244
+            name: Tallinn
+            country: Estonia
+            url: https://pixelfed.social/discover/places/61244/tallinn
+      - status: 422
+        body:
+          message: The q field is required.
+          errors:
+            q: [The q field is required.]
+
+  - id: get-place-posts
+    method: GET
+    path: /api/v1.1/places/posts/{id}/{slug}
+    title: Get posts for a place
+    description: "Returns a place and the most recent local, public posts tagged with it. The post list is cached for an hour and capped at 60, with no paging. Both the ID and the slug must match, or you get 404."
+    compat: pixelfed
+    scope: read
+    result: place
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "The place ID, from [Search locations](/api/compose#search-locations) or a post's `place`."
+        - name: slug
+          type: string
+          required: true
+          desc: "The place slug, such as `tallinn`."
+    returns: "`place` (`id`, `name`, `slug`, `country`, and `lat` and `long` as decimal strings) and `posts`, an array of Statuses in the [Pixelfed shape](/api/pixelfed-entities)."
+    example:
+      path: /api/v1.1/places/posts/61244/tallinn
+    responses:
+      - status: 200
+        body:
+          place:
+            id: 61244
+            name: Tallinn
+            slug: tallinn
+            country: Estonia
+            lat: "59.436960"
+            long: "24.753530"
+          posts:
+            - id: "728341901556629504"
+              url: https://pixelfed.social/p/dansup/728341901556629504
+              content: Golden hour at the pier
+              created_at: "2026-09-14T17:42:10.000Z"
+              visibility: public
+              pf_type: photo
+              place:
+                id: 61244
+                name: Tallinn
+                slug: tallinn
+                country: Estonia
+              media_attachments:
+                - id: "728341067224219648"
+                  type: image
+                  url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              account:
+                id: "2"
+                username: dansup
+                acct: dansup
+      - status: 404
+        body:
+          error: Record not found

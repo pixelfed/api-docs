@@ -1,0 +1,511 @@
+title: Account settings
+description: Manage the signed in account, from its avatar and timeline preferences to passwords, sessions and deletion.
+icon: cog-6-tooth
+section: pixelfed
+order: 4
+endpoints:
+  - id: verify-app
+    method: GET
+    path: /api/v1/apps/verify_credentials
+    title: Verify app credentials
+    description: Returns the name of the app that owns the token. Use it to confirm a stored token still works. Only user tokens are accepted, so a client credentials token (no user) gets a 403.
+    compat: mastodon
+    result: app
+    returns: "an Application with `name`. `website` and `vapid_key` are always `null`."
+    responses:
+      - status: 200
+        body:
+          name: Tintype
+          website: null
+          vapid_key: null
+      - status: 403
+        body:
+          error: ""
+
+  - id: update-avatar
+    method: POST
+    path: /api/v1/avatar/update
+    title: Update avatar
+    description: Replaces the account's avatar with an uploaded image. The file is stored right away and optimized in the background, so the new avatar URL can take a moment to settle.
+    compat: pixelfed
+    result: res
+    params:
+      body:
+        - name: upload
+          type: file
+          required: true
+          desc: "A JPEG or PNG image. The size limit is `MAX_AVATAR_SIZE` in KB (default 2000), exposed as `limits.account.max_avatar_size` in `GET /api/v2.1/config`."
+    returns: "a confirmation object with `code` and `msg`. Fetch the account again to read the new `avatar` URL."
+    example:
+      files: { upload: dansup-avatar.jpg }
+    responses:
+      - status: 200
+        body:
+          code: 200
+          msg: Avatar successfully updated
+      - status: 422
+        body:
+          message: "The upload field must be a file of type: image/jpeg, image/jpg, image/png."
+          errors:
+            upload:
+              - "The upload field must be a file of type: image/jpeg, image/jpg, image/png."
+      - status: 500
+        body:
+          code: 500
+          msg: There was an error updating your avatar. Please try again.
+
+  - id: delete-avatar
+    method: DELETE
+    path: /api/v1.1/accounts/avatar
+    title: Remove avatar
+    description: Deletes the custom avatar file and resets the account to the default avatar. If the account already uses the default, nothing changes and you get the account back as is.
+    compat: pixelfed
+    scope: write
+    result: account
+    returns: "the updated Account in the [Pixelfed shape](/api/pixelfed-entities)."
+    responses:
+      - status: 200
+        body:
+          id: "2"
+          username: dansup
+          acct: dansup
+          display_name: dansup
+          discoverable: true
+          locked: false
+          followers_count: 1284
+          following_count: 312
+          statuses_count: 468
+          note: Pixelfed developer
+          note_text: Pixelfed developer
+          url: https://pixelfed.social/dansup
+          avatar: https://pixelfed.social/storage/avatars/default.jpg
+          website: null
+          local: true
+          is_admin: false
+          created_at: "2019-03-02T18:21:07.000000Z"
+          header_bg: null
+          last_fetched_at: null
+          pronouns: []
+          location: null
+          has_story: false
+      - status: 403
+        body:
+          error: ""
+
+  - id: get-timeline-settings
+    method: GET
+    path: /api/v2.1/account/timeline/settings
+    title: Get timeline settings
+    description: Returns the account's home timeline preferences. These are the defaults the [home timeline](/api/timelines#home-timeline) uses when a request does not pass `include_reblogs` or `photos_reblogs_only` itself. A settings row is created on first read, with both values off.
+    compat: pixelfed
+    scope: read
+    result: settings
+    returns: "an object with `reblogs_enabled` and `photo_reblogs_only` booleans."
+    responses:
+      - status: 200
+        body:
+          reblogs_enabled: true
+          photo_reblogs_only: false
+      - status: 403
+        body:
+          error: ""
+
+  - id: update-timeline-settings
+    method: POST
+    path: /api/v2.1/account/timeline/settings
+    title: Update timeline settings
+    description: Changes the home timeline preferences. Send only the fields you want to change, the others keep their current value.
+    compat: pixelfed
+    scope: write
+    result: settings
+    params:
+      body:
+        - name: reblogs_enabled
+          type: boolean
+          desc: Show shares in the home timeline.
+        - name: photo_reblogs_only
+          type: boolean
+          desc: When shares are shown, only include shares of photo and video posts. The cached home feed does not apply this filter.
+    returns: the full settings object after the change.
+    example:
+      body: { reblogs_enabled: true, photo_reblogs_only: true }
+    responses:
+      - status: 200
+        body:
+          reblogs_enabled: true
+          photo_reblogs_only: true
+      - status: 422
+        body:
+          message: The reblogs enabled field must be true or false.
+          errors:
+            reblogs_enabled:
+              - The reblogs enabled field must be true or false.
+
+  - id: change-password
+    method: POST
+    path: /api/v1.1/accounts/change-password
+    title: Change password
+    description: "Sets a new password after checking the current one. The change is written to the account log and a confirmation email goes to the account's address. Needs the `security:write` scope, which is not a default scope, so request it explicitly when you [authorize](/api/authentication)."
+    compat: pixelfed
+    scope: "security:write"
+    result: account
+    params:
+      body:
+        - name: current_password
+          type: string
+          required: true
+          desc: The account's current password.
+        - name: new_password
+          type: string
+          required: true
+          desc: "The new password. At least `MIN_PASSWORD_LENGTH` characters (default 8)."
+        - name: confirm_password
+          type: string
+          required: true
+          desc: "Must match `new_password`."
+        - name: revoke_other_sessions
+          type: boolean
+          desc: "Revoke every other active token (and its refresh token) for this account. The token making the request stays valid. Defaults to `false`."
+    returns: "the Account in the [Pixelfed shape](/api/pixelfed-entities)."
+    example:
+      body:
+        current_password: harbour-fog-1987
+        new_password: pier-light-at-six
+        confirm_password: pier-light-at-six
+        revoke_other_sessions: true
+    responses:
+      - status: 200
+        body:
+          id: "2"
+          username: dansup
+          acct: dansup
+          display_name: dansup
+          locked: false
+          url: https://pixelfed.social/dansup
+          avatar: https://pixelfed.social/storage/avatars/412/760/avatar.jpg
+          local: true
+          created_at: "2019-03-02T18:21:07.000000Z"
+      - status: 422
+        body:
+          message: The password you entered is incorrect
+          errors:
+            current_password:
+              - The password you entered is incorrect
+
+  - id: get-two-factor
+    method: GET
+    path: /api/v1.1/accounts/two-factor
+    title: Get two-factor status
+    description: "Tells you whether two-factor authentication is on for the account. Setting it up or turning it off happens in the web settings, not through the API. Needs the `security:read` scope."
+    compat: pixelfed
+    scope: "security:read"
+    result: twoFactor
+    returns: "an object with `active` and `setup_at` (`null` when 2FA was never set up)."
+    responses:
+      - status: 200
+        body:
+          active: true
+          setup_at: "2024-06-18T09:42:11.000000Z"
+      - status: 403
+        body:
+          error: ""
+
+  - id: get-login-activity
+    method: GET
+    path: /api/v1.1/accounts/login-activity
+    title: Get login activity
+    description: "Lists recent sign ins from the last year, one entry per IP address (the latest login from each), newest first, at most 10. Device, browser and platform are parsed from the stored user agent. `ip_current` is `true` for the IP the request came from."
+    compat: pixelfed
+    scope: read
+    result: activity
+    returns: an array of login entries.
+    responses:
+      - status: 200
+        body:
+          - id: 90412
+            action: auth.login
+            ip: 203.0.113.24
+            ip_current: true
+            is_mobile: true
+            device: Google Pixel 8
+            browser: Chrome Mobile
+            platform: Android
+            created_at: "2026-10-16T07:12:40.000Z"
+          - id: 88731
+            action: auth.login
+            ip: 198.51.100.7
+            ip_current: false
+            is_mobile: false
+            device: ""
+            browser: Firefox
+            platform: Ubuntu
+            created_at: "2026-09-28T19:03:15.000Z"
+      - status: 403
+        body:
+          error: ""
+
+  - id: list-emails-from-pixelfed
+    method: GET
+    path: /api/v1.1/accounts/emails-from-pixelfed
+    title: List security emails
+    description: "Shows the security emails the server sent in the last 14 days: email verifications, password reset requests and password change notices, up to 10 of each. Use it to help people tell real Pixelfed emails from phishing. `created_at` is a display string, and the list is sorted on that string, so the order is not strictly chronological. Needs the `security:read` scope."
+    compat: pixelfed
+    scope: "security:read"
+    result: emails
+    returns: an array of email records.
+    responses:
+      - status: 200
+        body:
+          - type: Password Change
+            subject: Password Change
+            to_address: dansup@example.com
+            from_address: noreply@pixelfed.social
+            created_at: "Oct 9, 2026 at 8:31:02 PM"
+          - type: Email Verification
+            subject: Confirm Email
+            to_address: dansup@example.com
+            from_address: noreply@pixelfed.social
+            created_at: "Oct 4, 2026 at 6:15:47 AM"
+      - status: 403
+        body:
+          error: ""
+
+  - id: list-authorized-apps
+    method: GET
+    path: /api/v1.1/accounts/apps-and-applications
+    title: List authorized apps
+    description: "Lists the access tokens issued to the account, newest first, with the app each belongs to. `current_session` marks the token making the request. Needs the `security:read` scope."
+    compat: pixelfed
+    scope: "security:read"
+    result: apps
+    params:
+      query:
+        - name: filter
+          type: string
+          desc: "`active`, `revoked` (revoked or expired) or `all`. Defaults to `all`. Sending any `filter` also switches dates to ISO 8601. Without it, `created_at` and `expires_at` come back as display strings like `Oct 3, 2026 at 9:14:02 AM`."
+        - name: limit
+          type: integer
+          desc: Tokens per page, 1 to 40. Defaults to 10.
+        - name: cursor
+          type: string
+          desc: "Opaque cursor from the `next` URL in the `Link` header."
+    returns: "an array of tokens. When there are more, a `Link` header with `rel=\"next\"` points to the next page using a `cursor` parameter (not `max_id`)."
+    example:
+      query: { filter: active, limit: 20 }
+    responses:
+      - status: 200
+        body:
+          - id: 5b1f0c9e2d7a48b3e6f1a0c4d9b27e8f13a6c5d0e4b9f2a7c1d8e3b6a0f5c9d2e7b4a1f8c3d6e0b5
+            current_session: true
+            name: Tintype
+            scopes: [read, write, follow, push, "security:read"]
+            revoked: false
+            status: active
+            created_at: "2026-10-16T07:12:41+00:00"
+            expires_at: "2027-10-07T07:12:41+00:00"
+          - id: 9c4e1a7b3f0d82e5c6a9b1f4d7e0c3a8b5f2e9d6c1a4b7e0f3d8c5a2b9e6f1d4c7a0b3e8f5d2c9
+            current_session: false
+            name: Pixelfed for Web
+            scopes: [read, write, follow, push]
+            revoked: false
+            status: active
+            created_at: "2026-07-02T14:20:09+00:00"
+            expires_at: "2027-06-23T14:20:09+00:00"
+      - status: 422
+        body:
+          message: The selected filter is invalid.
+          errors:
+            filter:
+              - The selected filter is invalid.
+
+  - id: revoke-authorized-app
+    method: POST
+    path: /api/v1.1/accounts/apps-and-applications/{id}/revoke
+    title: Revoke an app
+    description: "Revokes one access token and its refresh tokens, and logs the change. Revoking a token that is already revoked is a no-op that still returns it. You cannot revoke the token you are calling with, sign out instead. Needs the `security:write` scope."
+    compat: pixelfed
+    scope: "security:write"
+    result: app
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "The token `id` from [List authorized apps](/api/account-settings#list-authorized-apps)."
+    returns: "the revoked token, with ISO 8601 dates."
+    example:
+      path: /api/v1.1/accounts/apps-and-applications/9c4e1a7b3f0d82e5c6a9b1f4d7e0c3a8b5f2e9d6c1a4b7e0f3d8c5a2b9e6f1d4c7a0b3e8f5d2c9/revoke
+    responses:
+      - status: 200
+        body:
+          id: 9c4e1a7b3f0d82e5c6a9b1f4d7e0c3a8b5f2e9d6c1a4b7e0f3d8c5a2b9e6f1d4c7a0b3e8f5d2c9
+          current_session: false
+          name: Pixelfed for Web
+          scopes: [read, write, follow, push]
+          revoked: true
+          status: revoked
+          created_at: "2026-07-02T14:20:09+00:00"
+          expires_at: "2027-06-23T14:20:09+00:00"
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          error: You cannot revoke the current session. Sign out instead.
+
+  - id: lookup-username
+    method: GET
+    path: /api/v1.1/accounts/username/{username}
+    title: Look up an account by username
+    description: "Resolves a username to an account the server already knows. A leading `@` and this server's own domain are stripped, so `dansup`, `@dansup@pixelfed.social` and `dansup@pixelfed.social` all work. Remote accounts are matched as `user@domain` and are not fetched if the server has never seen them. Lookups are cached for 4 hours and rate limited per user (30 per 120 seconds by default), with `X-Rate-Limit-*` headers on the response."
+    compat: pixelfed
+    scope: read
+    result: account
+    params:
+      path:
+        - name: username
+          type: string
+          required: true
+          desc: "A local username, or `user@domain` for a remote account."
+    returns: "an Account in the [Pixelfed shape](/api/pixelfed-entities), or an empty array `[]` when no account matches."
+    example:
+      path: /api/v1.1/accounts/username/jonas
+    responses:
+      - status: 200
+        body:
+          id: "412760184563377"
+          username: jonas
+          acct: jonas
+          display_name: Jonas Berg
+          locked: false
+          followers_count: 527
+          following_count: 401
+          statuses_count: 193
+          url: https://pixelfed.social/jonas
+          avatar: https://pixelfed.social/storage/avatars/412/760/377/avatar.jpg
+          local: true
+          created_at: "2020-05-14T10:02:33.000000Z"
+      - status: 429
+        body:
+          error: Too many attempts!
+
+  - id: get-account-posts
+    method: GET
+    path: /api/v1.1/accounts/{id}/posts
+    title: Get recent posts by account
+    description: "Returns up to 8 of an account's most recent public posts, for profile previews and hover cards. As a guard against ID guessing, you must also pass the account's `username`; if it does not match, you get `[]`. The array is built with keys preserved, so if a post is filtered out the JSON can arrive as an object keyed by index instead of a list. Read it with that in mind."
+    compat: pixelfed
+    scope: read
+    result: posts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account ID.
+      query:
+        - name: username
+          type: string
+          desc: "The account's exact username. Not validated, but without a match the response is `[]`."
+    returns: "an array of Status in the [Pixelfed shape](/api/pixelfed-entities)."
+    example:
+      path: /api/v1.1/accounts/2/posts
+      query: { username: dansup }
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            shortcode: ZnL2wq8xVb
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the old pier.
+            content_text: Golden hour at the old pier.
+            created_at: "2026-10-12T17:41:09.000Z"
+            favourites_count: 86
+            reblogs_count: 4
+            reply_count: 7
+            sensitive: false
+            visibility: public
+            pf_type: photo
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+            account:
+              id: "2"
+              username: dansup
+              display_name: dansup
+      - status: 403
+        body:
+          error: ""
+
+  - id: get-mutual-accounts
+    method: GET
+    path: /api/v1.1/accounts/mutuals/{id}
+    title: Get mutual accounts
+    description: "Returns accounts you follow that also follow the given account (\"followed by\" on a profile). At most 24 are returned and there is no pagination. Asking about your own account, or an unknown one, returns `[]`."
+    compat: pixelfed
+    scope: follow
+    result: mutuals
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The account to compare against.
+    returns: "an array of Account in the [Pixelfed shape](/api/pixelfed-entities)."
+    example:
+      path: /api/v1.1/accounts/mutuals/412760184563377
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563512"
+            username: liisa
+            acct: liisa
+            display_name: Liisa Kask
+            url: https://pixelfed.social/liisa
+            avatar: https://pixelfed.social/storage/avatars/412/760/512/avatar.jpg
+            local: true
+          - id: "523018847720194"
+            username: tomasz
+            acct: tomasz@photog.example
+            display_name: Tomasz
+            url: https://photog.example/tomasz
+            avatar: https://pixelfed.social/storage/cache/avatars/523/018/avatar.jpg
+            local: false
+      - status: 403
+        body:
+          error: ""
+
+  - id: delete-account-permanently
+    method: POST
+    path: /api/v2.1/account/remove/permanent
+    title: Delete account permanently
+    description: "Deletes the signed in account. The only confirmation the server asks for is the current password, so put your own confirmation step in front of this call. Deletion starts as soon as the request succeeds."
+    compat: pixelfed
+    scope: "write security:write"
+    result: res
+    params:
+      body:
+        - name: current_password
+          type: string
+          required: true
+          desc: The account's current password.
+    callout:
+      icon: exclamation-triangle
+      text: "This cannot be undone. The token needs both `write` and `security:write`, and `current_password` must be correct. On success the email and password are wiped, every access token, refresh token and OAuth app owned by the account is deleted (including the one you called with), and a background job starts removing posts and media right away. Admin accounts get a 403, accounts that are already suspended or pending deletion get a 400, and servers with `ACCOUNT_DELETION` turned off return 403."
+    returns: "a confirmation `message`. Your token no longer works afterwards, so sign the person out locally."
+    example:
+      body: { current_password: harbour-fog-1987 }
+    responses:
+      - status: 200
+        body:
+          message: Account deleted
+      - status: 422
+        body:
+          message: The password is incorrect.
+          errors:
+            current_password:
+              - The password is incorrect.
+      - status: 403
+        body:
+          error: ""

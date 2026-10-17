@@ -1,0 +1,327 @@
+title: Timelines
+description: Chronological feeds. Nothing is ranked and nothing is injected.
+icon: queue-list
+section: resources
+order: 5
+endpoints:
+  - id: home-timeline
+    method: GET
+    path: /api/v1/timelines/home
+    title: Home timeline
+    description: "Posts from the accounts you follow, newest first. Only top level photo and video posts are included (no replies), and accounts you mute are left out. Your `home` [filters](/api/safety#create-filter) are applied: a `hide` match drops the post, a `warn` or `blur` match adds a `filtered` array to it."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: posts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Posts per page. Defaults to 20, capped at 40."
+        - name: max_id
+          type: string
+          desc: Return posts older than this ID.
+        - name: min_id
+          type: string
+          desc: Return posts newer than this ID.
+        - name: include_reblogs
+          type: boolean
+          desc: "Include shares. When you leave it out, the account's own \"show reblogs\" setting decides (off by default)."
+        - name: photos_reblogs_only
+          type: boolean
+          desc: "When shares are included, keep only shares of photo or video posts. Defaults to the account's setting. Ignored when the server uses the cached home feed."
+    callout:
+      icon: server
+      text: "When the server has the cached home feed turned on (`EXP_CHT`), a cold cache answers `206 Partial Content` with `[]` while it warms up. Retry after a moment."
+    returns: "an array of Status. Pages are linked in the `Link` header, see [Pagination](/api/pagination). There is no `since_id`."
+    example:
+      query:
+        limit: 5
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            created_at: "2026-09-14T17:42:10.000Z"
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the pier
+            visibility: public
+            sensitive: false
+            spoiler_text: ""
+            reblog: null
+            favourited: false
+            reblogged: false
+            bookmarked: false
+            favourites_count: 12
+            reblogs_count: 1
+            replies_count: 2
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+                preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+                description: Wooden pier at sunset, two people fishing at the far end
+                blurhash: UJF}Qo~W9aIV4.xuRjWB00WB-pof
+                meta:
+                  original:
+                    width: 1080
+                    height: 1350
+                    aspect: 0.8
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+              url: https://pixelfed.social/dansup
+      - status: 206
+        body: []
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: home-timeline-v1-1
+    method: GET
+    path: /api/v1.1/accounts/timelines/home
+    title: Home timeline (Pixelfed path)
+    description: "An alias of [Home timeline](#home-timeline). It runs the exact same controller method, so it takes the same parameters and returns the same posts. It is also served at `/api/pixelfed/v1/accounts/timelines/home`. The `Link` header still points at `/api/v1/timelines/home`."
+    compat: pixelfed
+    pe: true
+    scope: read
+    result: posts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Posts per page. Defaults to 20, capped at 40."
+        - name: max_id
+          type: string
+          desc: Return posts older than this ID.
+        - name: min_id
+          type: string
+          desc: Return posts newer than this ID.
+        - name: include_reblogs
+          type: boolean
+          desc: "Include shares. Defaults to the account's \"show reblogs\" setting."
+        - name: photos_reblogs_only
+          type: boolean
+          desc: Keep only shares of photo or video posts. Defaults to the account's setting.
+    returns: "an array of Status. See [Pagination](/api/pagination)."
+    example:
+      query:
+        limit: 5
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            created_at: "2026-09-14T17:42:10.000Z"
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the pier
+            visibility: public
+            reblog: null
+            favourited: false
+            favourites_count: 12
+            reblogs_count: 1
+            replies_count: 2
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: public-timeline
+    method: GET
+    path: /api/v1/timelines/public
+    title: Public timeline
+    description: "Public photo and video posts, newest first. By default you get posts from this server only. Replies and shares are never included, and posts older than the network falloff window (90 days by default) are skipped. Accounts and domains you block or mute are removed, and your `public` filters are applied."
+    compat: mastodon
+    pe: true
+    result: posts
+    params:
+      query:
+        - name: local
+          type: boolean
+          desc: "With `remote` also set, returns local and remote posts together. On its own it changes nothing, since local is already the default."
+        - name: remote
+          type: boolean
+          desc: "Return only posts from other servers (the network feed). Combine with `local` for both."
+        - name: limit
+          type: integer
+          desc: "Posts per page. Defaults to 20, capped at 40."
+        - name: max_id
+          type: string
+          desc: Return posts older than this ID.
+        - name: min_id
+          type: string
+          desc: Return posts newer than this ID.
+    callout:
+      icon: server
+      text: "Admins can hide sensitive posts from public feeds (`PF_HIDE_NSFW_ON_PUBLIC_FEEDS`). If your account has a role that cannot view the public or network feed, you get `200` with `[]`."
+    returns: "an array of Status. Pages are linked in the `Link` header, see [Pagination](/api/pagination)."
+    example:
+      query:
+        remote: true
+        limit: 10
+    responses:
+      - status: 200
+        body:
+          - id: "728355012774117376"
+            created_at: "2026-09-14T18:34:02.000Z"
+            url: https://pixelfed.social/p/jonas/728355012774117376
+            content: First frost on the allotment
+            visibility: public
+            sensitive: false
+            reblog: null
+            favourited: false
+            reblogged: false
+            bookmarked: false
+            favourites_count: 4
+            reblogs_count: 0
+            replies_count: 0
+            media_attachments:
+              - id: "728354900331618304"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/412760184563377/frost.jpg
+                preview_url: https://pixelfed.social/storage/m/_v2/412760184563377/frost_thumb.jpg
+                description: Frost on cabbage leaves in early morning light
+            account:
+              id: "412760184563377"
+              username: jonas
+              acct: jonas
+              display_name: Jonas
+              url: https://pixelfed.social/jonas
+      - status: 422
+        body:
+          message: The limit field must be at least 1.
+          errors:
+            limit: [The limit field must be at least 1.]
+
+  - id: hashtag-timeline
+    method: GET
+    path: /api/v1/timelines/tag/{hashtag}
+    title: Hashtag timeline
+    description: "Public posts that use a hashtag, newest first. Unlisted posts are only shown when they are yours. By default only posts with media are returned. An unknown or banned hashtag returns `[]`, not an error. Your `tags` filters are applied."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: posts
+    params:
+      path:
+        - name: hashtag
+          type: string
+          required: true
+          desc: The hashtag name or slug, without the `#`. Case insensitive on PostgreSQL.
+      query:
+        - name: limit
+          type: integer
+          desc: "Posts per page. Defaults to 20, capped at 40."
+        - name: only_media
+          type: boolean
+          desc: "Defaults to `true`. Set to `false` to include posts without media."
+        - name: cursor
+          type: string
+          desc: "Opaque token from the `rel=\"next\"` link. This is how you load older posts. Max 2000 characters."
+        - name: min_id
+          type: string
+          desc: "Return posts newer than this ID. IDs older than 9 months return `[]`."
+        - name: max_id
+          type: string
+          desc: "Not supported. A request with `max_id` and no `cursor` returns `[]`."
+    callout:
+      icon: arrows-right-left
+      text: "This feed pages with a signed `cursor` instead of `max_id`. Follow the `rel=\"next\"` URL from the `Link` header as is. Cursors expire after an hour and stop after 10 pages by default."
+    returns: "an array of Status. The `Link` header has a `next` URL with a `cursor` and a `prev` URL with `min_id`."
+    example:
+      path: /api/v1/timelines/tag/goldenhour
+      query:
+        limit: 10
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            created_at: "2026-09-14T17:42:10.000Z"
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: "Golden hour at the pier <a href=\"https://pixelfed.social/discover/tags/goldenhour\">#goldenhour</a>"
+            visibility: public
+            reblog: null
+            favourited: false
+            favourites_count: 12
+            reblogs_count: 1
+            replies_count: 2
+            tags:
+              - name: goldenhour
+                url: https://pixelfed.social/discover/tags/goldenhour
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+      - status: 403
+        body:
+          error: Invalid permissions for this action
+
+  - id: get-markers
+    method: GET
+    path: /api/v1/markers
+    title: Get a read marker
+    description: "Returns where you stopped reading the home timeline or notifications. Markers live in the cache for 30 days. Unlike Mastodon, the marker comes back on its own, not keyed by timeline name, and only one timeline is read per request."
+    compat: mastodon
+    scope: read
+    result: marker
+    params:
+      query:
+        - name: "timeline[]"
+          type: array of strings
+          required: true
+          desc: "`home` or `notifications`. Only the first value is used. A plain `timeline` string works too. Anything else returns `[]`."
+    returns: "a Marker, or `null` when none has been saved."
+    example:
+      query:
+        "timeline[]": home
+    responses:
+      - status: 200
+        body:
+          last_read_id: "728341901556629504"
+          version: 3
+          updated_at: "2026-09-14T19:02:44.118Z"
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: save-markers
+    method: POST
+    path: /api/v1/markers
+    title: Save a read marker
+    description: "Saves your position in the home timeline or notifications. Each save bumps `version`. If you send both, only `home` is saved, so send two requests if you need both."
+    compat: mastodon
+    scope: write
+    result: marker
+    params:
+      body:
+        - name: "home[last_read_id]"
+          type: string
+          desc: The last post you read in the home timeline.
+        - name: "notifications[last_read_id]"
+          type: string
+          desc: The last notification you read.
+    returns: "the saved Marker on its own, or `[]` when neither field was sent."
+    example:
+      body:
+        home:
+          last_read_id: "728341901556629504"
+    responses:
+      - status: 200
+        body:
+          last_read_id: "728341901556629504"
+          version: 4
+          updated_at: "2026-09-14T19:05:10.502Z"
+      - status: 401
+        body:
+          error: Unauthenticated.

@@ -1,0 +1,150 @@
+title: Conversations
+description: Mastodon compatible view of your direct message threads.
+icon: chat-bubble-left-right
+section: resources
+order: 8
+endpoints:
+  - id: list-conversations
+    method: GET
+    path: /api/v1/conversations
+    title: List conversations
+    description: "Returns your direct message conversations, most recently active first. Each message is presented as a `direct` Status in `last_status` so Mastodon clients can show it. Hidden conversations, and conversations whose last message is from someone you blocked, are left out."
+    compat: mastodon
+    scope: read
+    result: conversations
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Conversations per page. Defaults to 20. Values up to 40 pass validation but the result is capped at 20."
+        - name: max_id
+          type: string
+          desc: "Return conversations whose last message is older than this message ID (`last_status.id`)."
+        - name: min_id
+          type: string
+          desc: Return conversations whose last message is newer than this message ID.
+        - name: since_id
+          type: string
+          desc: "Same as `min_id`, and takes priority over it."
+        - name: scope
+          type: string
+          desc: "Pixelfed extension. `inbox` (default), `sent` (conversations you started) or `requests` (message requests waiting for you to accept)."
+        - name: include_groups
+          type: boolean
+          desc: "Pixelfed extension. Include group conversations. Off by default because older clients treat every conversation as one to one."
+    callout:
+      icon: chat-bubble-left-right
+      text: "This endpoint only covers what Mastodon clients understand. For requests, muting, group threads and sending messages, use the [Direct messages](/api/direct) API."
+    returns: "an array of Conversation. Pages are linked in the `Link` header and keyed by `last_status.id`, see [Pagination](/api/pagination). If your account has a role that cannot use direct messages, you get `[]`."
+    example:
+      query:
+        limit: 20
+    responses:
+      - status: 200
+        body:
+          - id: "5821"
+            unread: true
+            accounts:
+              - id: "412760184563377"
+                username: jonas
+                acct: jonas
+                display_name: Jonas
+                url: https://pixelfed.social/jonas
+                avatar: https://pixelfed.social/storage/avatars/412/760/377/avatar.jpg
+            last_status:
+              id: "728371554032959488"
+              uri: https://pixelfed.social/i/dm/messages/728371554032959488
+              url: https://pixelfed.social/i/dm/messages/728371554032959488
+              in_reply_to_id: null
+              in_reply_to_account_id: null
+              reblog: null
+              content: Are you going to the harbour walk on Saturday?
+              content_text: Are you going to the harbour walk on Saturday?
+              created_at: "2026-09-14T19:40:18.000Z"
+              edited_at: null
+              visibility: direct
+              sensitive: false
+              spoiler_text: ""
+              replies_count: 0
+              reblogs_count: 0
+              favourites_count: 0
+              mentions:
+                - id: "2"
+                  username: dansup
+                  acct: dansup
+                  url: https://pixelfed.social/dansup
+              tags: []
+              emojis: []
+              media_attachments: []
+              pf_type: text
+              account:
+                id: "412760184563377"
+                username: jonas
+                acct: jonas
+      - status: 422
+        body:
+          message: The selected scope is invalid.
+          errors:
+            scope: [The selected scope is invalid.]
+
+  - id: mark-conversation-read
+    method: POST
+    path: /api/v1/conversations/{id}/read
+    title: Mark a conversation as read
+    description: Clears the unread count of a conversation for you.
+    compat: mastodon
+    scope: write
+    result: conversation
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "The conversation `id` from [List conversations](#list-conversations). A Direct messages conversation ID works too."
+    returns: "the Conversation with `unread: false`."
+    example:
+      path: /api/v1/conversations/5821/read
+    responses:
+      - status: 200
+        body:
+          id: "5821"
+          unread: false
+          accounts:
+            - id: "412760184563377"
+              username: jonas
+              acct: jonas
+          last_status:
+            id: "728371554032959488"
+            content: Are you going to the harbour walk on Saturday?
+            visibility: direct
+            account:
+              id: "412760184563377"
+              username: jonas
+              acct: jonas
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: delete-conversation
+    method: DELETE
+    path: /api/v1/conversations/{id}
+    title: Remove a conversation
+    description: "Hides the conversation from your list. Nothing is deleted, and the other participants still see it. Undo it with [Unhide a conversation](/api/direct#unhide-conversation)."
+    compat: mastodon
+    scope: write
+    result: res
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "The conversation `id` from [List conversations](#list-conversations)."
+    returns: "an empty array."
+    example:
+      path: /api/v1/conversations/5821
+    responses:
+      - status: 200
+        body: []
+      - status: 404
+        body:
+          error: Record not found

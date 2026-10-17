@@ -1,0 +1,475 @@
+title: Blocks, mutes & filters
+description: The accounts, domains and keywords you have shut out, and how to report content.
+icon: shield-check
+section: resources
+order: 9
+endpoints:
+  - id: list-blocks
+    method: GET
+    path: /api/v1/blocks
+    title: List blocked accounts
+    description: "Returns the accounts you have blocked, most recent first. Block and unblock with [Block an account](/api/accounts#block-account) and [Unblock an account](/api/accounts#unblock-account)."
+    compat: mastodon
+    scope: read
+    result: accounts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Accounts per page. Defaults to 40, capped at 80."
+        - name: page
+          type: integer
+          desc: "Page number, starting at `1`."
+    callout:
+      icon: information-circle
+      text: "The accounts use the [Pixelfed entity](/api/pixelfed-entities) shape, not the Mastodon one, and pages use `page` instead of `max_id`. Follow the `Link` header."
+    returns: "an array of Account. The `Link` header has `next` and `prev` URLs with a `page` parameter."
+    example:
+      query:
+        limit: 40
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas
+            discoverable: true
+            locked: false
+            followers_count: 88
+            following_count: 140
+            statuses_count: 37
+            note: ""
+            note_text: null
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412/760/377/avatar.jpg
+            website: null
+            local: true
+            is_admin: false
+            created_at: "2025-01-19T10:12:40.000000Z"
+            header_bg: null
+            last_fetched_at: null
+            pronouns: []
+            location: null
+            has_story: false
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: list-mutes
+    method: GET
+    path: /api/v1/mutes
+    title: List muted accounts
+    description: "Returns the accounts you have muted, most recent first. Mute and unmute with [Mute an account](/api/accounts#mute-account) and [Unmute an account](/api/accounts#unmute-account)."
+    compat: mastodon
+    scope: read
+    result: accounts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Accounts per page. Defaults to 40, capped at 80."
+        - name: page
+          type: integer
+          desc: "Page number, starting at `1`."
+    returns: "an array of Account in the [Pixelfed entity](/api/pixelfed-entities) shape. Pages use `page`, follow the `Link` header."
+    example:
+      query:
+        limit: 40
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas
+            locked: false
+            followers_count: 88
+            following_count: 140
+            statuses_count: 37
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412/760/377/avatar.jpg
+            local: true
+            created_at: "2025-01-19T10:12:40.000000Z"
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: list-domain-blocks
+    method: GET
+    path: /api/v1/domain_blocks
+    title: List blocked domains
+    description: Returns the domains you have blocked, as plain strings, most recent first.
+    compat: mastodon
+    result: domains
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "Domains per page. Defaults to 100, max 200."
+        - name: cursor
+          type: string
+          desc: "Opaque token taken from the `Link` header."
+    returns: "an array of domain strings. Pages use a `cursor` parameter, so follow the `next` and `prev` URLs in the `Link` header."
+    example:
+      query:
+        limit: 100
+    responses:
+      - status: 200
+        body:
+          - spam.example
+          - ads.example
+      - status: 422
+        body:
+          message: The limit field must not be greater than 200.
+          errors:
+            limit: [The limit field must not be greater than 200.]
+
+  - id: block-domain
+    method: POST
+    path: /api/v1/domain_blocks
+    title: Block a domain
+    description: "Blocks every account on a domain for you. In the background Pixelfed removes that domain's posts from your home feed, its notifications, and its accounts from your followers. You can block up to 100 domains by default (`PF_MAX_DOMAIN_BLOCKS`). Blocking a domain twice is safe."
+    compat: mastodon
+    result: res
+    params:
+      body:
+        - name: domain
+          type: string
+          required: true
+          desc: "The domain as an `https://` URL, for example `https://spam.example`. Max 120 characters. Only the host is stored."
+    callout:
+      icon: exclamation-triangle
+      text: "Unlike Mastodon, a bare domain such as `spam.example` is rejected with a `500`. Send it with the `https://` scheme. You also cannot block your own server or a domain the admins already banned."
+    returns: "an empty array."
+    example:
+      body:
+        domain: https://spam.example
+    responses:
+      - status: 200
+        body: []
+      - status: 400
+        body:
+          error: "Max limit of domain blocks reached! You can only block 100 domains at a time. Ask your admin to adjust this limit."
+      - status: 500
+        body:
+          error: Invalid domain or already blocked by server admins
+
+  - id: unblock-domain
+    method: DELETE
+    path: /api/v1/domain_blocks
+    title: Unblock a domain
+    description: "Removes a domain block. Unblocking a domain you never blocked is safe."
+    compat: mastodon
+    result: res
+    params:
+      body:
+        - name: domain
+          type: string
+          required: true
+          desc: "The bare domain as returned by [List blocked domains](#list-domain-blocks), for example `spam.example`. Not a URL."
+    returns: "an empty array."
+    example:
+      body:
+        domain: spam.example
+    responses:
+      - status: 200
+        body: []
+      - status: 422
+        body:
+          message: The domain field is required.
+          errors:
+            domain: [The domain field is required.]
+
+  - id: list-filters-v1
+    method: GET
+    path: /api/v1/filters
+    title: List filters (v1)
+    description: "Exists for older Mastodon clients. Pixelfed applies filters on the server, so this always returns an empty array. Use [List filters](#list-filters) for your real filters."
+    compat: mastodon
+    scope: read
+    result: filters
+    returns: "an empty array."
+    responses:
+      - status: 200
+        body: []
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: list-filters
+    method: GET
+    path: /api/v2/filters
+    title: List filters
+    description: "Returns your keyword filters that have not expired, most recently updated first. Filters are applied on the server to the home, public and hashtag timelines."
+    compat: mastodon
+    scope: read
+    result: filters
+    returns: "an array of Filter. `statuses` is always empty, since Pixelfed only filters by keyword."
+    responses:
+      - status: 200
+        body:
+          - id: "29"
+            title: Spoilers
+            context: [home, public]
+            expires_at: null
+            filter_action: warn
+            keywords:
+              - id: 71
+                keyword: season finale
+                whole_word: true
+            statuses: []
+      - status: 401
+        body:
+          error: Unauthenticated.
+
+  - id: get-filter
+    method: GET
+    path: /api/v2/filters/{id}
+    title: Get a filter
+    description: "Returns one of your filters, including an expired one."
+    compat: mastodon
+    scope: read
+    result: filter
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The filter ID.
+    returns: a Filter.
+    example:
+      path: /api/v2/filters/29
+    responses:
+      - status: 200
+        body:
+          id: "29"
+          title: Spoilers
+          context: [home, public]
+          expires_at: null
+          filter_action: warn
+          keywords:
+            - id: 71
+              keyword: season finale
+              whole_word: true
+          statuses: []
+      - status: 403
+        body:
+          error: This action is unauthorized.
+      - status: 404
+        body:
+          error: "No query results for model [App\\Models\\CustomFilter] 29"
+
+  - id: create-filter
+    method: POST
+    path: /api/v2/filters
+    title: Create a filter
+    description: "Creates a keyword filter. Matching posts are dropped (`hide`) or come back with a `filtered` array so your client can warn or blur them. By default you can have 20 filters, create 20 per hour, and use 10 keywords of up to 40 characters per filter. A keyword you already use in another filter is rejected."
+    compat: mastodon
+    scope: write
+    result: filter
+    params:
+      body:
+        - name: title
+          type: string
+          required: true
+          desc: "A name for the filter, max 100 characters."
+        - name: "context[]"
+          type: array of strings
+          required: true
+          desc: "Where to apply it: `home`, `public` and/or `tags` (hashtag timelines). Mastodon's `notifications`, `thread` and `account` contexts are rejected."
+        - name: filter_action
+          type: string
+          desc: "`warn` (default), `hide` or `blur`. `blur` is a Pixelfed addition."
+        - name: expires_in
+          type: integer
+          desc: "Seconds until the filter expires, max 63072000 (two years). `0` or leaving it out means never."
+        - name: "keywords_attributes[][keyword]"
+          type: string
+          required: true
+          desc: "A keyword or phrase. At least one is required. Letters, numbers, spaces, punctuation and combining marks only, so emoji and symbols are rejected, as is a character repeated more than 20 times."
+        - name: "keywords_attributes[][whole_word]"
+          type: boolean
+          desc: "Match whole words only. Defaults to `true`."
+    returns: "the new Filter."
+    example:
+      body:
+        title: Spoilers
+        context: [home, public]
+        filter_action: warn
+        keywords_attributes:
+          - keyword: season finale
+            whole_word: true
+    responses:
+      - status: 200
+        body:
+          id: "29"
+          title: Spoilers
+          context: [home, public]
+          expires_at: null
+          filter_action: warn
+          keywords:
+            - id: 71
+              keyword: season finale
+              whole_word: true
+          statuses: []
+      - status: 422
+        body:
+          error: Duplicate keywords found
+          message: "The following keywords already exist: season finale"
+      - status: 429
+        body:
+          error: Rate limit exceeded
+          message: You can only create 20 filters per hour.
+
+  - id: update-filter
+    method: PUT
+    path: /api/v2/filters/{id}
+    title: Update a filter
+    description: "Changes a filter and adds, edits or removes its keywords. Fields you leave out stay as they are, except that `keywords_attributes` is always required. You can update filters 40 times per hour by default."
+    compat: mastodon
+    scope: write
+    result: filter
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The filter ID.
+      body:
+        - name: title
+          type: string
+          desc: "New name, max 100 characters."
+        - name: "context[]"
+          type: array of strings
+          desc: "Replaces the contexts. `home`, `public` and/or `tags`."
+        - name: filter_action
+          type: string
+          desc: "`warn`, `hide` or `blur`."
+        - name: expires_in
+          type: integer
+          desc: "Seconds from now until it expires, max 63072000. `0` removes the expiry."
+        - name: "keywords_attributes[][id]"
+          type: integer
+          desc: An existing keyword to change or remove. Leave it out to add a new keyword.
+        - name: "keywords_attributes[][keyword]"
+          type: string
+          required: true
+          desc: "The keyword text. Required for new keywords, optional when `id` is given. Same character rules as when creating."
+        - name: "keywords_attributes[][whole_word]"
+          type: boolean
+          desc: "Match whole words only. New keywords default to `true`."
+        - name: "keywords_attributes[][_destroy]"
+          type: boolean
+          desc: "`true` together with `id` deletes that keyword."
+    callout:
+      icon: information-circle
+      text: "Mastodon lets you omit `keywords_attributes` when you only rename a filter. Pixelfed does not: send at least one entry, for example an existing keyword's `id`."
+    returns: "the updated Filter."
+    example:
+      path: /api/v2/filters/29
+      body:
+        filter_action: hide
+        keywords_attributes:
+          - id: 71
+            _destroy: true
+          - keyword: finale
+    responses:
+      - status: 200
+        body:
+          id: "29"
+          title: Spoilers
+          context: [home, public]
+          expires_at: null
+          filter_action: hide
+          keywords:
+            - id: 74
+              keyword: finale
+              whole_word: true
+          statuses: []
+      - status: 401
+        body:
+          error: This action is unauthorized
+      - status: 422
+        body:
+          message: The keywords attributes field is required.
+          errors:
+            keywords_attributes: [The keywords attributes field is required.]
+
+  - id: delete-filter
+    method: DELETE
+    path: /api/v2/filters/{id}
+    title: Delete a filter
+    description: Deletes one of your filters and its keywords. It stops applying right away.
+    compat: mastodon
+    scope: write
+    result: res
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The filter ID.
+    returns: "an empty object."
+    example:
+      path: /api/v2/filters/29
+    responses:
+      - status: 200
+        body: {}
+      - status: 403
+        body:
+          error: This action is unauthorized.
+      - status: 404
+        body:
+          error: "No query results for model [App\\Models\\CustomFilter] 29"
+
+  - id: report
+    method: POST
+    path: /api/v1.1/report
+    title: Report content
+    description: "Sends a report about a post, account, story or direct message to this server's moderators. You can report each object once, and you cannot report yourself. A story can only be reported while it is active and you follow its author. Also served at `/api/pixelfed/v1/report`."
+    compat: pixelfed
+    scope: write
+    result: report
+    params:
+      body:
+        - name: object_type
+          type: string
+          required: true
+          desc: "`post`, `user`, `story` or `direct_message`. A `post` ID that is not a post is tried as a direct message, for older clients."
+        - name: object_id
+          type: string
+          required: true
+          desc: The ID of the post, account, story or message.
+        - name: report_type
+          type: string
+          required: true
+          desc: "One of `spam`, `sensitive`, `abusive`, `underage`, `violence`, `copyright`, `impersonation`, `scam` or `terrorism`."
+        - name: message
+          type: string
+          desc: "Extra context for moderators. Control characters are stripped and whitespace collapsed, then it must be 255 characters or fewer."
+    callout:
+      icon: exclamation-triangle
+      text: "Errors use Pixelfed's `{msg, code, error_code}` shape with status `400`, not Laravel's `422` validation shape. Check `error_code`: `ERROR_INVALID_PARAMS`, `ERROR_MESSAGE_TOO_LONG`, `ERROR_INVALID_OBJECT_ID`, `ERROR_NO_SELF_REPORTS` or `ERROR_REPORT_DUPLICATE`."
+    returns: "a confirmation object."
+    example:
+      body:
+        object_type: post
+        object_id: "728355012774117376"
+        report_type: spam
+        message: Same link posted under every hashtag
+    responses:
+      - status: 200
+        body:
+          msg: Successfully sent report
+          code: 200
+      - status: 400
+        body:
+          msg: Duplicate report
+          code: 400
+          error_code: ERROR_REPORT_DUPLICATE
+      - status: 400
+        body:
+          msg: Invalid or missing parameters
+          code: 400
+          error_code: ERROR_INVALID_PARAMS

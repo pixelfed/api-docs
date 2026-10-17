@@ -1,0 +1,364 @@
+title: Registration
+description: Create new accounts from inside an app, by email code, by the older email link flow, or with an admin invite.
+icon: user-plus
+section: pixelfed
+order: 8
+endpoints:
+  - id: verify-email-code
+    method: POST
+    path: /api/auth/app-code-verify
+    title: Check an email code
+    description: "Checks the 6 digit code that was emailed during in-app sign up, without creating anything. Use it to confirm the code before you ask for a username and password. A wrong or expired code returns HTTP 200 with `{\"status\": \"error\"}`, and each wrong guess counts toward a limit of 10 per code."
+    compat: pixelfed
+    auth: false
+    result: check
+    params:
+      body:
+        - name: email
+          type: string
+          required: true
+          desc: "The address the code was sent to. Must have a pending code and must not belong to an existing account."
+        - name: verify_code
+          type: string
+          required: true
+          desc: Exactly 6 digits.
+    callout:
+      icon: information-circle
+      text: "How in-app sign up works. 1) Check `mobile_registration` in [`GET /api/v1/instance`](/api/instance) or `signup.mobile_registration` in `GET /api/v2.1/config`. It is `true` only when both `OPEN_REGISTRATION` and `APP_REGISTER` (`auth.in_app_registration`) are on. 2) Open `https://pixelfed.social/i/app-email-verify` in a browser, optionally with `?redirect_uri=yourapp://verify`. The person enters their email (and a captcha if the server uses one), the server emails a 6 digit code valid for 1 hour, then redirects to your `redirect_uri` with `status=success&email=...&expires_in=3600`, or `status=error&message=...`. Without `redirect_uri` it goes to `pixelfed://verifyEmail`, and the scheme must be listed in `IN_APP_REGISTRATION_REDIRECT_SCHEMES` (default `pixelfed`). 3) Call this endpoint with the code. 4) Call [Complete in-app sign up](/api/registration#complete-app-registration) with the code, username and password. New codes are requested at `/i/app-email-resend` (up to 5 resends)."
+    returns: "`{\"status\": \"success\"}` or `{\"status\": \"error\"}`."
+    example:
+      body: { email: dansup@example.com, verify_code: "048213" }
+    responses:
+      - status: 200
+        body:
+          status: success
+      - status: 422
+        body:
+          message: The selected email is invalid.
+          errors:
+            email:
+              - The selected email is invalid.
+      - status: 429
+        body:
+          status: error
+          message: Too many verification attempts. Please request a new code.
+
+  - id: complete-app-registration
+    method: POST
+    path: /api/auth/onboarding
+    title: Complete in-app sign up
+    description: "Creates the account (with the email already verified) once the emailed code checks out, and signs it in. Pass your app's `client_id` and `client_secret` from [Register an app](/api/oauth#register-app) to get a normal OAuth token pair that works with the `refresh_token` grant. Without them you get the legacy response: a personal access token with `read write follow push`, the server's personal access `client_id` and `client_secret`, and a `refresh_token` that cannot be used to refresh."
+    compat: pixelfed
+    auth: false
+    result: session
+    params:
+      body:
+        - name: email
+          type: string
+          required: true
+          desc: The verified address. Must have a pending code and must not belong to an existing account.
+        - name: verify_code
+          type: string
+          required: true
+          desc: The 6 digit code from the email.
+        - name: username
+          type: string
+          required: true
+          desc: "2 to 30 characters, unique. Letters and numbers, plus at most one `-`, `.` or `_`, and it must start and end with a letter or number. Reserved names are rejected."
+        - name: name
+          type: string
+          desc: "Display name, up to `max_name_length` characters. Optional."
+        - name: password
+          type: string
+          required: true
+          desc: "At least `MIN_PASSWORD_LENGTH` characters (default 8)."
+        - name: client_id
+          type: string
+          desc: "Your app's client ID, up to 80 characters. Required with `client_secret`."
+        - name: client_secret
+          type: string
+          desc: "Your app's client secret. Required with `client_id`. The client must be confidential."
+        - name: scope
+          type: string
+          desc: "Space or `+` separated scopes for the token, only used with `client_id`. Defaults to `read write follow push`. Unknown scopes and `*` are rejected."
+    callout:
+      icon: exclamation-triangle
+      text: "Some failures come back as HTTP 200 with `status: error`, so always check `status`. `code: invalid_code` means the code is wrong or older than 1 hour. `code: account_created_token_failed` means the account exists but no token could be issued, so send the person to normal sign in. Client and scope problems are checked before the account is created."
+    returns: "a session object with the tokens, the server `domain` and the new Account in the [Pixelfed shape](/api/pixelfed-entities)."
+    example:
+      body:
+        email: dansup@example.com
+        verify_code: "048213"
+        username: dansup
+        name: dansup
+        password: harbour-fog-1987
+        client_id: "1842"
+        client_secret: "q8V3zN1rKcT0fYd6LwP2sHbJ7mXeA9uR4oGiE5nC"
+        scope: read write follow push
+    responses:
+      - status: 200
+        body:
+          status: success
+          domain: pixelfed.social
+          token_type: Bearer
+          access_token: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxODQyIn0.kM2p
+          refresh_token: def50200a1c4e9b7f0d3a6c2e8b5f1d4a7c0e3b6
+          expires_in: 30758400
+          scope: [read, write, follow, push]
+          client_id: "1842"
+          user:
+            pid: "2"
+            username: dansup
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+            display_name: dansup
+            locked: false
+            followers_count: 0
+            following_count: 0
+            statuses_count: 0
+            url: https://pixelfed.social/dansup
+            avatar: https://pixelfed.social/storage/avatars/default.jpg
+            local: true
+            created_at: "2026-10-17T08:02:19.000000Z"
+      - status: 401
+        body:
+          status: error
+          code: invalid_client
+          message: Invalid client credentials.
+      - status: 422
+        body:
+          message: The username has already been taken.
+          errors:
+            username:
+              - The username has already been taken.
+      - status: 429
+        body:
+          status: error
+          code: locked
+          message: Too many verification attempts. Please request a new code.
+
+  - id: app-registration-preflight
+    method: GET
+    path: /api/v1.1/auth/iarpfc
+    title: Check legacy app sign up
+    description: "Tells the app whether the older email link sign up flow is available. `open` mirrors `OPEN_REGISTRATION` and `iara` mirrors the admin setting `PF_ALLOW_APP_REGISTRATION` (`pixelfed.allow_app_registration`). Both must be `true` for the legacy calls below to work. This flag is separate from `APP_REGISTER`, which gates the email code flow above."
+    compat: pixelfed
+    auth: false
+    result: preflight
+    callout:
+      icon: information-circle
+      text: "The legacy flow, in order: 1) call this preflight. 2) [Start legacy sign up](/api/registration#start-legacy-registration) with email, username and password. The account is created right away, unverified, and the server emails a confirmation link. 3) The link opens [the email redirect](/api/registration#legacy-registration-email-redirect), which hands the tokens to the app through a `pixelfed://confirm-account/...` deep link. 4) [Confirm legacy sign up](/api/registration#confirm-legacy-registration) with those tokens to get an access token. Steps 2 and 4 need the `X-PIXELFED-APP` request header."
+    returns: "an object with `open` and `iara` booleans."
+    responses:
+      - status: 200
+        body:
+          open: true
+          iara: true
+
+  - id: start-legacy-registration
+    method: POST
+    path: /api/v1.1/auth/iar
+    title: Start legacy sign up
+    description: "Creates an unverified account and emails a confirmation link to the address. The request must carry an `X-PIXELFED-APP` header (any value) or it gets a 403, and it must not be authenticated. Attempts are limited per IP to `PF_IAR_RL_ATTEMPTS` (default 3) every `PF_IAR_RL_DECAY` seconds (default 1800), and every attempt counts, including ones that fail validation."
+    compat: pixelfed
+    auth: false
+    result: res
+    params:
+      body:
+        - name: email
+          type: string
+          required: true
+          desc: "A valid address up to 255 characters, not already in use and not on the server's banned email list."
+        - name: username
+          type: string
+          required: true
+          desc: "2 to 30 characters, unique. Letters and numbers, plus at most one `-`, `.` or `_`, starting and ending with a letter or number."
+        - name: password
+          type: string
+          required: true
+          desc: At least 8 characters. This flow does not use `MIN_PASSWORD_LENGTH`.
+    returns: "`{\"success\": true}`. The username and email are taken from this point on, even before the email is confirmed."
+    example:
+      body: { email: dansup@example.com, username: dansup, password: harbour-fog-1987 }
+    responses:
+      - status: 200
+        body:
+          success: true
+      - status: 400
+        body:
+          error: Too many requests
+      - status: 404
+        body:
+          error: ""
+      - status: 422
+        body:
+          message: The email has already been taken.
+          errors:
+            email:
+              - The email has already been taken.
+
+  - id: legacy-registration-email-redirect
+    method: GET
+    path: /api/v1.1/auth/iarer
+    title: Legacy email redirect
+    description: "The page the confirmation email links to. You do not call it yourself. It redirects the browser to `pixelfed://confirm-account/{ut}?ut=...&rt=...&domain=pixelfed.social&ea=...`, so the Pixelfed app can pick up the tokens. `ea` is the email address in base64. The scheme is always `pixelfed`, so third party apps cannot receive this redirect."
+    compat: pixelfed
+    auth: false
+    result: res
+    params:
+      query:
+        - name: ut
+          type: string
+          required: true
+          desc: The user token from the email link.
+        - name: rt
+          type: string
+          required: true
+          desc: The random token from the email link.
+        - name: ea
+          type: string
+          required: true
+          desc: The email address, base64 encoded.
+    returns: "a 302 redirect to the `pixelfed://confirm-account/` deep link."
+    example:
+      query:
+        ut: 7Hq2LmZ9xVb4NcR1sTe8KpW3yUa6JdF0gOiE5nXz
+        rt: Rk4vT9pLq2Wm7Zc1Xs8Nb3Ye6Ja0Hd5Gf9Uo2Ii7Ee4Rt1Lq8Wm3Zc6Xs0Nb5Ye9Ja2Hd7Gf4Uo1Ii6Ee3R
+        ea: bWFyYUBleGFtcGxlLmNvbQ==
+    responses:
+      - status: 302
+      - status: 422
+        body:
+          message: The rt field is required.
+          errors:
+            rt:
+              - The rt field is required.
+
+  - id: confirm-legacy-registration
+    method: POST
+    path: /api/v1.1/auth/iarc
+    title: Confirm legacy sign up
+    description: "Verifies the email using the tokens from the deep link, marks the address as verified and returns a personal access token with `read write follow push`. Needs the `X-PIXELFED-APP` header and an unauthenticated request. Tokens older than 24 hours are rejected and deleted."
+    compat: pixelfed
+    auth: false
+    result: session
+    params:
+      body:
+        - name: user_token
+          type: string
+          required: true
+          desc: "The `ut` value from the deep link."
+        - name: random_token
+          type: string
+          required: true
+          desc: "The `rt` value from the deep link."
+        - name: email
+          type: string
+          required: true
+          desc: "The email address in plain text (decode `ea` from base64 first)."
+    returns: "an object with `access_token`. There is no refresh token, so store the access token."
+    example:
+      body:
+        user_token: 7Hq2LmZ9xVb4NcR1sTe8KpW3yUa6JdF0gOiE5nXz
+        random_token: Rk4vT9pLq2Wm7Zc1Xs8Nb3Ye6Ja0Hd5Gf9Uo2Ii7Ee4Rt1Lq8Wm3Zc6Xs0Nb5Ye9Ja2Hd7Gf4Uo1Ii6Ee3R
+        email: dansup@example.com
+    responses:
+      - status: 200
+        body:
+          access_token: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIn0.Zq7d
+      - status: 403
+        body:
+          error: Invalid tokens
+
+  - id: check-invite
+    method: POST
+    path: /api/v1.1/auth/invite/admin/verify
+    title: Check an invite
+    description: "Checks an admin invite code before showing the invite sign up form. Invites work even when open registration is off. Invite links look like `https://pixelfed.social/auth/invite/a/{code}`, and the whole invite feature returns 404 when `PF_ADMIN_INVITES_ENABLED` is off. Limited to 20 requests per 120 minutes per IP."
+    compat: pixelfed
+    auth: false
+    result: invite
+    params:
+      body:
+        - name: token
+          type: string
+          required: true
+          desc: The invite code from the invite link.
+    returns: "the invite's welcome `message` (or `null`), `max_uses` (or `null` for unlimited) and `sev`, which is `true` when accounts created with this invite skip email verification."
+    example:
+      body: { token: Xb7kQ2mZ9pLc }
+    responses:
+      - status: 200
+        body:
+          message: Welcome to the photo walk crew!
+          max_uses: 25
+          sev: true
+      - status: 400
+        body:
+          error: Invite has expired.
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: check-invite-username
+    method: POST
+    path: /api/v1.1/auth/invite/admin/uc
+    title: Check a username for an invite
+    description: "Checks whether a username is valid and free, for live feedback on the invite sign up form. The invite must still be valid. Limited to 20 requests per 120 minutes per IP."
+    compat: pixelfed
+    auth: false
+    result: check
+    params:
+      body:
+        - name: token
+          type: string
+          required: true
+          desc: The invite code.
+        - name: username
+          type: string
+          required: true
+          desc: "The username to check. Same rules as sign up: 2 to 30 characters, unique, at most one `-`, `.` or `_`."
+    returns: "an empty array `[]` when the username is available. A taken or invalid name returns 400 with the field errors keyed by `username` (not the usual 422 shape)."
+    example:
+      body: { token: Xb7kQ2mZ9pLc, username: dansup }
+    responses:
+      - status: 200
+        body: []
+      - status: 400
+        body:
+          username:
+            - The username has already been taken.
+
+  - id: check-invite-email
+    method: POST
+    path: /api/v1.1/auth/invite/admin/ec
+    title: Check an email for an invite
+    description: "Checks whether an email address is valid (strict RFC check with a DNS lookup), unused and not banned, for the invite sign up form. The invite must still be valid. Limited to 10 requests per 24 hours per IP, so check once on submit rather than on every keystroke."
+    compat: pixelfed
+    auth: false
+    result: check
+    params:
+      body:
+        - name: token
+          type: string
+          required: true
+          desc: The invite code.
+        - name: email
+          type: string
+          required: true
+          desc: The address to check, up to 255 characters.
+    returns: "an empty array `[]` when the address can be used, or 400 with the field errors keyed by `email`."
+    example:
+      body: { token: Xb7kQ2mZ9pLc, email: dansup@example.com }
+    responses:
+      - status: 200
+        body: []
+      - status: 400
+        body:
+          email:
+            - The email has already been taken.
+      - status: 429
+        body:
+          error: Too Many Attempts.

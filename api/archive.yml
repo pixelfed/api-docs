@@ -1,0 +1,103 @@
+title: Archive
+description: Hide your own posts from your profile and feeds without deleting them.
+icon: archive-box
+section: pixelfed
+order: 5
+endpoints:
+  - id: list-archived-posts
+    method: GET
+    path: /api/v1.1/archive/list
+    title: List archived posts
+    description: Returns your archived posts, newest first, 10 per page. Only you can see them.
+    compat: pixelfed
+    scope: read
+    result: archived
+    params:
+      query:
+        - name: cursor
+          type: string
+          desc: "The `meta.next_cursor` value from the previous page."
+    returns: "a Laravel cursor page: `data` holds Statuses in the [Pixelfed shape](/api/pixelfed-entities) with `visibility` set to `archived`, and `meta.next_cursor` (or `links.next`) fetches the next page. This is not Link header [Pagination](/api/pagination)."
+    responses:
+      - status: 200
+        body:
+          data:
+            - id: "728341901556629504"
+              shortcode: kG7vQ2pX
+              url: https://pixelfed.social/p/dansup/728341901556629504
+              content: Golden hour at the pier
+              content_text: Golden hour at the pier
+              created_at: "2026-09-14T17:42:10.000Z"
+              visibility: archived
+              pf_type: photo
+              favourites_count: 212
+              reply_count: 9
+              media_attachments:
+                - id: "728341067224219648"
+                  type: image
+                  url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              account:
+                id: "2"
+                username: dansup
+                acct: dansup
+          links:
+            first: null
+            last: null
+            prev: null
+            next: https://pixelfed.social/api/v1.1/archive/list?cursor=eyJpZCI6NzI4MzQxOTAxNTU2NjI5NTA0fQ
+          meta:
+            path: https://pixelfed.social/api/v1.1/archive/list
+            per_page: 10
+            next_cursor: eyJpZCI6NzI4MzQxOTAxNTU2NjI5NTA0fQ
+            prev_cursor: null
+      - status: 403
+        body:
+          error: ""
+
+  - id: archive-post
+    method: POST
+    path: /api/v1.1/archive/add/{id}
+    title: Archive a post
+    description: "Hides one of your posts from your profile, timelines and search, and lowers your post count. The original visibility is saved so you can restore it. Only your own top level posts can be archived, not comments or shares. Archiving a post that is already archived does nothing and still succeeds."
+    compat: pixelfed
+    scope: write
+    result: result
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post to archive.
+    returns: "the literal array `[200]`."
+    example:
+      path: /api/v1.1/archive/add/728341901556629504
+    responses:
+      - status: 200
+        body: [200]
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: unarchive-post
+    method: POST
+    path: /api/v1.1/archive/remove/{id}
+    title: Unarchive a post
+    description: "Restores an archived post to the visibility it had before, and puts it back in your post count. Calling it on a post that isn't archived does nothing and still succeeds."
+    compat: pixelfed
+    scope: write
+    result: result
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post to restore.
+    returns: "the literal array `[200]`."
+    example:
+      path: /api/v1.1/archive/remove/728341901556629504
+    responses:
+      - status: 200
+        body: [200]
+      - status: 404
+        body:
+          error: Record not found

@@ -1,0 +1,953 @@
+title: Statuses
+description: Posts, comments, likes and shares.
+icon: pencil-square
+section: resources
+order: 3
+endpoints:
+  - id: get-status
+    method: GET
+    path: /api/v1/statuses/{id}
+    title: Get a post
+    description: "Returns one post with `favourited`, `reblogged` and `bookmarked` filled in for you. Public and unlisted posts are visible to everyone, followers-only posts only to the author and their followers. An ID taken from [Conversations](/api/conversations) also works here and returns the direct message in Status form."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post ID.
+    callout:
+      icon: arrow-path
+      text: "When the post is a share and you send `_pe`, Pixelfed copies the shared post's `content`, `media_attachments`, `sensitive`, `spoiler_text` and `emojis` up to the top level so older clients render something. `account` stays the person who shared. Add `include_reblogs=1` to turn that off and read the original from `reblog` instead."
+    returns: a Status.
+    example:
+      path: /api/v1/statuses/728341901556629504
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          uri: https://pixelfed.social/p/dansup/728341901556629504
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          in_reply_to_id: null
+          in_reply_to_account_id: null
+          reblog: null
+          content: Golden hour at the pier
+          created_at: "2026-09-14T17:42:10.000Z"
+          emojis: []
+          reblogs_count: 2
+          favourites_count: 14
+          replies_count: 3
+          reblogged: false
+          favourited: true
+          bookmarked: false
+          muted: false
+          sensitive: false
+          spoiler_text: ""
+          visibility: public
+          application:
+            name: web
+            website: null
+          language: null
+          mentions: []
+          tags: []
+          poll: null
+          edited_at: null
+          pinned: false
+          media_attachments:
+            - id: "728341067224219648"
+              type: image
+              url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              remote_url: null
+              preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+              text_url: null
+              description: Wooden pier at sunset, two people fishing at the far end
+              blurhash: UJF}Qo~W9aIV4.xuRjWB00WB-pof
+              meta:
+                focus: { x: 0, y: 0 }
+                original:
+                  width: 1080
+                  height: 1350
+                  size: 1080x1350
+                  aspect: 0.8
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+            display_name: dansup
+            locked: false
+            url: https://pixelfed.social/dansup
+            avatar: https://pixelfed.social/storage/avatars/2/avatar.jpg
+            avatar_static: https://pixelfed.social/storage/avatars/2/avatar.jpg
+      - status: 403
+        body:
+          error: ""
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: get-status-context
+    method: GET
+    path: /api/v1/statuses/{id}/context
+    title: Get comments and parent
+    description: "Returns the post this one replies to (one level up, not the whole chain) and up to 20 direct comments, oldest first. Comments from accounts you block or mute are left out, and so are followers-only comments you are not allowed to see. Comments on comments are not included, call this again on a comment to load its replies."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: context
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post ID.
+    returns: "an object with `ancestors` and `descendants`, both arrays of Status."
+    example:
+      path: /api/v1/statuses/728341901556629504/context
+    responses:
+      - status: 200
+        body:
+          ancestors: []
+          descendants:
+            - id: "728352210917826560"
+              url: https://pixelfed.social/p/jonas/728352210917826560
+              in_reply_to_id: "728341901556629504"
+              in_reply_to_account_id: "2"
+              content: That light is unreal
+              created_at: "2026-09-14T18:23:41.000Z"
+              visibility: public
+              favourited: false
+              reblogged: false
+              favourites_count: 1
+              replies_count: 0
+              media_attachments: []
+              account:
+                id: "412760184563377"
+                username: jonas
+                acct: jonas
+                display_name: Jonas
+      - status: 404
+        body: ""
+
+  - id: get-status-card
+    method: GET
+    path: /api/v1/statuses/{id}/card
+    title: Get a link preview
+    description: "Exists for Mastodon clients that still call it. Pixelfed does not generate link preview cards, so this always returns an empty array, whatever the ID."
+    compat: mastodon
+    scope: read
+    result: card
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post ID. Not checked.
+    returns: "an empty array."
+    example:
+      path: /api/v1/statuses/728341901556629504/card
+    responses:
+      - status: 200
+        body: []
+
+  - id: get-status-history
+    method: GET
+    path: /api/v1/statuses/{id}/history
+    title: Get edit history
+    description: "Lists every saved version of an edited post, newest first. The first edit also stores the original, so a post edited once has two entries. Each entry carries its own caption, `spoiler_text` and `sensitive`, but `account`, `media_attachments` and `emojis` are copied from the post as it is now. Returns `[]` for a post that was never edited."
+    compat: mastodon
+    result: versions
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "The post ID. Only public and unlisted posts have a readable history."
+    returns: "an array of StatusEdit, with `account` and `media_attachments` in [Pixelfed entity](/api/pixelfed-entities) form."
+    example:
+      path: /api/v1/statuses/728341901556629504/history
+    responses:
+      - status: 200
+        body:
+          - content: Golden hour at the pier, Tallinn
+            spoiler_text: null
+            sensitive: false
+            created_at: "2026-09-14T18:02:55.000Z"
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+              local: true
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+                mime: image/jpeg
+            emojis: []
+          - content: Golden hour at the pier
+            spoiler_text: null
+            sensitive: false
+            created_at: "2026-09-14T17:42:10.000Z"
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+              display_name: dansup
+              local: true
+            media_attachments:
+              - id: "728341067224219648"
+                type: image
+                url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+                mime: image/jpeg
+            emojis: []
+      - status: 403
+        body:
+          error: ""
+
+  - id: create-post
+    method: POST
+    path: /api/v1/statuses
+    title: Create a post
+    description: "Publishes a post from media you already uploaded with [Upload media](/api/media#upload-media), or a comment on an existing post. A post needs `media_ids`, a comment needs `in_reply_to_id`, and a comment may also carry media. You can create up to 1000 posts and comments in 24 hours."
+    compat: mastodon
+    pe: true
+    scope: write
+    result: post
+    params:
+      body:
+        - name: status
+          type: string
+          desc: "The caption. HTML is stripped, hashtags and mentions are linked. Up to 500 characters by default (the instance's `max_caption_length`)."
+        - name: "media_ids[]"
+          type: array of strings
+          desc: "Unattached uploads of yours, in display order. Up to 4 by default (the instance's `max_album_length`). Required unless `in_reply_to_id` is set."
+        - name: in_reply_to_id
+          type: string
+          desc: "The post to comment on. The comment's visibility is lowered to the parent's if you ask for something wider."
+        - name: visibility
+          type: string
+          desc: "`public`, `unlisted` or `private`. Defaults to `public`. Private accounts always post `private`, and accounts set to unlisted turn `public` into `unlisted`. `direct` is rejected, use [Direct messages](/api/direct)."
+        - name: sensitive
+          type: boolean
+          desc: "Hide the media behind a warning. Always on when the account has the content warning flag set by a moderator."
+        - name: spoiler_text
+          type: string
+          desc: "The warning text, up to 140 characters. Ignored unless `sensitive` is on."
+        - name: comments_disabled
+          type: boolean
+          desc: Turn off comments on the new post. Only applies to posts with media.
+        - name: quote_approval_policy
+          type: string
+          desc: "Who may quote the post: `public`, `followers` or `nobody`. Leave it out to use the account default."
+        - name: place_id
+          type: integer
+          desc: "A location ID (1 to 128769) to tag the post with. Only applies to posts with media."
+        - name: "collection_ids[]"
+          type: array of strings
+          desc: "Up to 3 of your own [collections](/api/collections) to add the post to. Only applies to posts with media."
+    callout:
+      icon: key
+      text: "Send an `Idempotency-Key` header to make retries safe. For an hour, a repeat with the same key returns the post that was already created instead of making a second one. A repeat that arrives while the first request is still running gets `409`."
+    returns: "the new Status, with `language` set to `en` and `card` set to `null`."
+    example:
+      body:
+        status: Golden hour at the pier
+        media_ids: ["728341067224219648"]
+        visibility: public
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          uri: https://pixelfed.social/p/dansup/728341901556629504
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          in_reply_to_id: null
+          content: Golden hour at the pier
+          created_at: "2026-09-14T17:42:10.000Z"
+          visibility: public
+          sensitive: false
+          spoiler_text: ""
+          favourited: false
+          reblogged: false
+          bookmarked: false
+          favourites_count: 0
+          reblogs_count: 0
+          replies_count: 0
+          language: en
+          card: null
+          media_attachments:
+            - id: "728341067224219648"
+              type: image
+              url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              preview_url: https://pixelfed.social/storage/m/_v2/2/pier_thumb.jpg
+              description: Wooden pier at sunset, two people fishing at the far end
+              blurhash: UJF}Qo~W9aIV4.xuRjWB00WB-pof
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+            display_name: dansup
+      - status: 403
+        body:
+          error: Empty statuses are not allowed
+      - status: 422
+        body:
+          message: The status field must not be greater than 500 characters.
+          errors:
+            status: [The status field must not be greater than 500 characters.]
+
+  - id: create-post-with-file
+    method: POST
+    path: /api/v1.1/status/create
+    title: Create a post in one request
+    description: "Uploads one photo or video and publishes it as a post in a single `multipart/form-data` request, so you skip the separate upload step. It accepts the same file types and size limit as [Upload media](/api/media#upload-media)."
+    compat: pixelfed
+    scope: write
+    result: post
+    params:
+      body:
+        - name: file
+          type: file
+          required: true
+          desc: "Exactly one photo or video. Sending more than one is a validation error."
+        - name: status
+          type: string
+          desc: "The caption, up to 500 characters by default. HTML is stripped."
+        - name: description
+          type: string
+          desc: Alt text for the file.
+        - name: visibility
+          type: string
+          desc: "`public`, `unlisted` or `private`. Defaults to `public`, with the same account overrides as [Create a post](/api/statuses#create-post)."
+        - name: sensitive
+          type: boolean
+          desc: Hide the media behind a warning.
+        - name: spoiler_text
+          type: string
+          desc: "The warning text, up to 140 characters. Ignored unless `sensitive` is on."
+    callout:
+      icon: information-circle
+      text: "Compared with `POST /api/v1/statuses`: one file only, no comments, locations, collections, `comments_disabled` or quote policy, and no `_pe` (the response is always Mastodon shaped). The 1000 posts and 1250 uploads per day limits are not checked here. A repeated `Idempotency-Key` is rejected with `400` instead of returning the earlier post."
+    returns: the new Status.
+    example:
+      files:
+        file: pier.jpg
+      fields:
+        status: Golden hour at the pier
+        description: Wooden pier at sunset, two people fishing at the far end
+        visibility: public
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          created_at: "2026-09-14T17:42:10.000Z"
+          visibility: public
+          sensitive: false
+          favourited: false
+          bookmarked: false
+          favourites_count: 0
+          replies_count: 0
+          language: en
+          card: null
+          media_attachments:
+            - id: "728341067224219648"
+              type: image
+              url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              preview_url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              description: Wooden pier at sunset, two people fishing at the far end
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+      - status: 400
+        body:
+          error: Duplicate idempotency key.
+      - status: 403
+        body:
+          error: Account size limit reached.
+
+  - id: edit-post
+    method: PUT
+    path: /api/v1/statuses/{id}
+    title: Edit a post
+    description: "Changes the caption, content warning, location or attachment order of one of your posts, and sends the update to other servers about a minute later. A post can be edited at most 10 times. You cannot add new media: `media_ids` can only reorder or drop attachments of a post that has two or more."
+    compat: mastodon
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "One of your own public, unlisted or followers-only posts or comments. Shares cannot be edited."
+      body:
+        - name: status
+          type: string
+          desc: "The new caption, up to 500 characters by default. Required unless `media_ids` is sent."
+        - name: spoiler_text
+          type: string
+          desc: "Content warning text, up to 140 characters. Cleared if the post ends up not sensitive."
+        - name: sensitive
+          type: boolean
+          desc: "Mark or unmark the post as sensitive. You cannot unmark a post a moderator marked sensitive."
+        - name: "media_ids[]"
+          type: array of strings
+          desc: "The post's current attachment IDs in the new order. On a post with two or more attachments, send the full list every time: IDs you leave out are detached and deleted."
+        - name: location
+          type: object
+          desc: "`{ id, country, name }` to set a place, or `null` to remove it. `country` and `name` are required with `id`."
+    callout:
+      icon: exclamation-triangle
+      text: "The response comes from the public post cache, so editing an unlisted or followers-only post returns `200` with an empty body. Fetch the post with [Get a post](/api/statuses#get-status) afterwards if you need it."
+    returns: "the updated Status in [Pixelfed entity](/api/pixelfed-entities) form, with `edited_at` set."
+    example:
+      path: /api/v1/statuses/728341901556629504
+      body:
+        status: Golden hour at the pier, Tallinn
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          shortcode: Bw7Qx2LmPa
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier, Tallinn
+          content_text: Golden hour at the pier, Tallinn
+          created_at: "2026-09-14T17:42:10.000Z"
+          edited_at: "2026-09-14T18:02:55.000Z"
+          visibility: public
+          pf_type: photo
+          reply_count: 3
+          comments_disabled: false
+          sensitive: false
+          spoiler_text: ""
+          media_attachments:
+            - id: "728341067224219648"
+              type: image
+              url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+              mime: image/jpeg
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+            local: true
+      - status: 400
+        body:
+          error: You cannot edit your post more than 10 times.
+      - status: 403
+        body:
+          error: This action is unauthorized.
+
+  - id: set-interaction-policy
+    method: PUT
+    path: /api/v1/statuses/{id}/interaction_policy
+    title: Set who can quote a post
+    description: "Changes the quote policy of one of your posts, or resets it to your account default. Pixelfed checks the policy whenever another server asks to quote the post, so nothing is federated when you change it."
+    compat: mastodon
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "One of your own public, unlisted or followers-only posts. Shares are not accepted."
+      body:
+        - name: quote_approval_policy
+          type: string
+          required: true
+          desc: "`public`, `followers` or `nobody`. The field must be present, send `null` to go back to the account default."
+    returns: "the Status in [Pixelfed entity](/api/pixelfed-entities) form, with `quote_approval_policy` added."
+    example:
+      path: /api/v1/statuses/728341901556629504/interaction_policy
+      body:
+        quote_approval_policy: followers
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          visibility: public
+          pf_type: photo
+          quote_approval_policy: followers
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          message: The selected quote approval policy is invalid.
+          errors:
+            quote_approval_policy: [The selected quote approval policy is invalid.]
+
+  - id: delete-post
+    method: DELETE
+    path: /api/v1/statuses/{id}
+    title: Delete a post
+    description: "Deletes one of your posts or comments. Removal from other servers runs in the background. The ID of a direct message you sent also works and deletes that message."
+    compat: mastodon
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "One of your own posts, comments or shares."
+    returns: "the deleted post as it was, with the caption in `text` and no `content` field. It is in [Pixelfed entity](/api/pixelfed-entities) form."
+    example:
+      path: /api/v1/statuses/728341901556629504
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          text: Golden hour at the pier
+          content_text: Golden hour at the pier
+          created_at: "2026-09-14T17:42:10.000Z"
+          visibility: public
+          pf_type: photo
+          favourites_count: 14
+          bookmarked: false
+          media_attachments:
+            - id: "728341067224219648"
+              type: image
+              url: https://pixelfed.social/storage/m/_v2/2/pier.jpg
+          account:
+            id: "2"
+            username: dansup
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-favourites
+    method: GET
+    path: /api/v1/favourites
+    title: List liked posts
+    description: "Posts you liked, most recently liked first. Each post has two extra fields, `like_id` and `liked_at`. Paging works on `like_id`, not on post IDs, so pass the IDs from the `Link` header rather than post IDs."
+    compat: mastodon
+    scope: read
+    result: posts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "How many posts to return. Defaults to 10, values above 40 are lowered to 40."
+        - name: max_id
+          type: string
+          desc: Return likes older than this like ID.
+        - name: min_id
+          type: string
+          desc: Return likes newer than this like ID.
+    returns: "an array of Status. See [Pagination](/api/pagination) for loading more."
+    example:
+      query:
+        limit: 20
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the pier
+            visibility: public
+            favourited: true
+            favourites_count: 14
+            like_id: "731990214"
+            liked_at: "2026-09-15T08:11:02.000Z"
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+
+  - id: list-favourited-by
+    method: GET
+    path: /api/v1/statuses/{id}/favourited_by
+    title: List who liked a post
+    description: "Accounts that liked a post, newest first. Only the author (and admins) can page past the first page: for everyone else no `Link` header is sent and a request with `cursor` returns `[]`."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: accounts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post ID.
+      query:
+        - name: limit
+          type: integer
+          desc: "How many accounts to return. Defaults to 40, values above 80 are lowered to 80."
+        - name: cursor
+          type: string
+          desc: "Opaque page cursor taken from the `Link` header."
+    returns: "an array of Account. Paging uses cursor URLs in the `Link` header, not `max_id`. The `rel` labels are reversed: the URL marked `prev` loads older likes."
+    example:
+      path: /api/v1/statuses/728341901556629504/favourited_by
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas
+            locked: false
+            url: https://pixelfed.social/jonas
+            avatar: https://pixelfed.social/storage/avatars/412760184563377/avatar.jpg
+      - status: 403
+        body:
+          error: ""
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: like-post
+    method: POST
+    path: /api/v1/statuses/{id}/favourite
+    title: Like a post
+    description: "Likes are called favourites in the API to stay compatible with Mastodon. Liking a post twice is safe and returns the same result. You can like up to 1500 posts in 24 hours."
+    compat: mastodon
+    pe: true
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: "The post to like. Followers-only posts need you to follow the author."
+    returns: "the Status with `favourited` set to `true`."
+    example:
+      path: /api/v1/statuses/728341901556629504/favourite
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          visibility: public
+          favourited: true
+          reblogged: false
+          bookmarked: false
+          favourites_count: 15
+          reblogs_count: 2
+          replies_count: 3
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          error: Cannot like a post from an account that has migrated
+
+  - id: unlike-post
+    method: POST
+    path: /api/v1/statuses/{id}/unfavourite
+    title: Unlike a post
+    description: "Removes your like. Safe to call on a post you have not liked. The like is removed by a background job, so `favourites_count` in the response can still include it for a moment."
+    compat: mastodon
+    pe: true
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post to unlike.
+    returns: "the Status with `favourited` set to `false`."
+    example:
+      path: /api/v1/statuses/728341901556629504/unfavourite
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          favourited: false
+          reblogged: false
+          bookmarked: false
+          favourites_count: 14
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-reblogged-by
+    method: GET
+    path: /api/v1/statuses/{id}/reblogged_by
+    title: List who shared a post
+    description: "Accounts that shared a post, newest first. As with likes, only the author and admins get a `Link` header and can page further, everyone else sees the first page only."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: accounts
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post ID.
+      query:
+        - name: limit
+          type: integer
+          desc: "How many accounts to return, 1 to 80. Defaults to 10."
+        - name: cursor
+          type: string
+          desc: "Opaque page cursor taken from the `Link` header."
+    returns: "an array of Account. Paging uses cursor URLs in the `Link` header with reversed `rel` labels, see [List who liked a post](/api/statuses#list-favourited-by)."
+    example:
+      path: /api/v1/statuses/728341901556629504/reblogged_by
+    responses:
+      - status: 200
+        body:
+          - id: "412760184563377"
+            username: jonas
+            acct: jonas
+            display_name: Jonas
+            url: https://pixelfed.social/jonas
+      - status: 422
+        body:
+          message: The limit field must not be greater than 80.
+          errors:
+            limit: [The limit field must not be greater than 80.]
+
+  - id: share-post
+    method: POST
+    path: /api/v1/statuses/{id}/reblog
+    title: Share a post
+    description: "Shares (boosts) a post to your followers. Only public posts can be shared, unlisted and followers-only posts return `404`. Sharing twice is safe."
+    compat: mastodon
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The public post to share.
+    returns: "the original Status with `reblogged` set to `true`. Unlike Mastodon, you get the shared post itself, not a new Status wrapping it."
+    example:
+      path: /api/v1/statuses/728341901556629504/reblog
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          visibility: public
+          reblogged: true
+          favourited: false
+          bookmarked: false
+          reblogs_count: 3
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          error: Cannot share a post from an account that has migrated
+
+  - id: unshare-post
+    method: POST
+    path: /api/v1/statuses/{id}/unreblog
+    title: Undo a share
+    description: "Removes your share of a post. Safe to call on a post you have not shared. Use the original post's ID, not the ID of your share."
+    compat: mastodon
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The public post you shared.
+    returns: "the original Status with `reblogged` set to `false`."
+    example:
+      path: /api/v1/statuses/728341901556629504/unreblog
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          reblogged: false
+          favourited: false
+          bookmarked: false
+          reblogs_count: 2
+      - status: 404
+        body:
+          error: Record not found
+
+  - id: list-bookmarks
+    method: GET
+    path: /api/v1/bookmarks
+    title: List bookmarks
+    description: "Posts you bookmarked, most recently saved first. Bookmarks are private, nobody else can see them. Posts that were deleted or that you can no longer see are skipped, so a page can hold fewer than `limit` items."
+    compat: mastodon
+    pe: true
+    scope: read
+    result: posts
+    params:
+      query:
+        - name: limit
+          type: integer
+          desc: "How many posts to return. Defaults to 20, values above 40 are lowered to 40."
+        - name: cursor
+          type: string
+          desc: "Opaque page cursor taken from the `Link` header."
+    returns: "an array of Status with `bookmarked` set to `true`. Pages are cursor based: follow the `next` and `prev` URLs in the `Link` header instead of building `max_id` yourself."
+    example:
+      query:
+        limit: 20
+    responses:
+      - status: 200
+        body:
+          - id: "728341901556629504"
+            url: https://pixelfed.social/p/dansup/728341901556629504
+            content: Golden hour at the pier
+            visibility: public
+            bookmarked: true
+            favourited: true
+            reblogged: false
+            account:
+              id: "2"
+              username: dansup
+              acct: dansup
+
+  - id: bookmark-post
+    method: POST
+    path: /api/v1/statuses/{id}/bookmark
+    title: Bookmark a post
+    description: "Saves a post to your bookmarks. Only top level photo and video posts can be bookmarked: comments, shares and text-only posts return `404`, and so do followers-only posts from accounts you do not follow. Bookmarking twice is safe."
+    compat: mastodon
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post to bookmark.
+    returns: "the Status with `bookmarked` set to `true`."
+    example:
+      path: /api/v1/statuses/728341901556629504/bookmark
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          visibility: public
+          bookmarked: true
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          error: Cannot bookmark a post from an account that has migrated
+
+  - id: unbookmark-post
+    method: POST
+    path: /api/v1/statuses/{id}/unbookmark
+    title: Remove a bookmark
+    description: "Removes a post from your bookmarks. Safe to call when the post is not bookmarked. The same post type rules as [Bookmark a post](/api/statuses#bookmark-post) apply."
+    compat: mastodon
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: The post to remove.
+    returns: "the Status with `bookmarked` set to `false`."
+    example:
+      path: /api/v1/statuses/728341901556629504/unbookmark
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          bookmarked: false
+      - status: 404
+        body:
+          error: Record does not exist.
+
+  - id: pin-post
+    method: POST
+    path: /api/v1/statuses/{id}/pin
+    title: Pin a post to your profile
+    description: "Pins one of your public posts to the top of your profile. You can pin up to 3 posts, in the order you pin them."
+    compat: mastodon
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: One of your own public posts.
+    returns: "the Status with `pinned` set to `true`. The post fields are in [Pixelfed entity](/api/pixelfed-entities) form (for example `pf_type`, `reply_count`, `mime` on media) while `account` is Mastodon shaped, whether or not you send `_pe`."
+    example:
+      path: /api/v1/statuses/728341901556629504/pin
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          visibility: public
+          pf_type: photo
+          reply_count: 3
+          pinned: true
+          account:
+            id: "2"
+            username: dansup
+            acct: dansup
+            avatar_static: https://pixelfed.social/storage/avatars/2/avatar.jpg
+      - status: 404
+        body:
+          error: Record not found
+      - status: 422
+        body:
+          error: "Validation failed: You have already pinned the max number of posts"
+
+  - id: unpin-post
+    method: POST
+    path: /api/v1/statuses/{id}/unpin
+    title: Unpin a post
+    description: "Removes a post from your pinned posts. The remaining pins move up to close the gap. Unpinning a post that is not pinned returns `422` with the body `false`."
+    compat: mastodon
+    scope: write
+    result: post
+    params:
+      path:
+        - name: id
+          type: string
+          required: true
+          desc: One of your own pinned public posts.
+    returns: "the Status with `pinned` set to `false`, in the same mixed form as [Pin a post](/api/statuses#pin-post)."
+    example:
+      path: /api/v1/statuses/728341901556629504/unpin
+    responses:
+      - status: 200
+        body:
+          id: "728341901556629504"
+          url: https://pixelfed.social/p/dansup/728341901556629504
+          content: Golden hour at the pier
+          visibility: public
+          pf_type: photo
+          pinned: false
+      - status: 422
+        body: false
+      - status: 404
+        body:
+          error: Record not found
